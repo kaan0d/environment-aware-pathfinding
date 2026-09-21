@@ -4,7 +4,9 @@ export const DT = 1 / 30 // seconds per simulation step
 export const GRID_WIDTH = 40 // default map size for the editor
 export const GRID_HEIGHT = 28
 
-export const WALL_HP = [100, 250, 500, 1000, 2000] // index is wall level - 1
+export const HYSTERESIS = 0.1 // a moving troop switches plan only when the new one is this fraction faster
+
+export const WALL_HP =[100, 250, 500, 1000, 2000] // index is wall level - 1
 
 export const TROOP_TYPES: Record<string, TroopType> = {
   fast: { id: 'fast', name: 'Hızlı-Zayıf', speed: 4, dps: 20, hp: 60 },

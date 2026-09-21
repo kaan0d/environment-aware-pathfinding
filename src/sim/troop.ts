@@ -10,6 +10,7 @@ export class Troop {
   attackId = -1
   attackCell = -1 // slot cell held while attacking, -1 otherwise
   distance = 0
+  planChanges = 0 // plans assigned after the first one
   wallsDestroyed = 0
   buildingsDestroyed = 0
   finishTime: number | null = null

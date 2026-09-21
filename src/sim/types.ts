@@ -59,7 +59,10 @@ export interface Plan {
 }
 
 export interface Planner {
+  // Best plan now; a planner may return the troop's current plan object to keep it.
   plan(world: World, troopId: number): Plan | null
+  // Set when a destroyed wall or building can improve other troops' plans, so the world offers them a re-plan.
+  readonly reconsidersOnChange?: boolean
 }
 
 export type SimEvent =

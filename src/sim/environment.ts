@@ -10,11 +10,17 @@ export interface EnvironmentKind {
 }
 
 // Index matches CellKind values.
-const REGISTRY: readonly EnvironmentKind[] = [
+const REGISTRY: EnvironmentKind[] = [
   { traversal: 'passable', moveCost: 1, targetable: false }, // empty
   { traversal: 'breakable', moveCost: 1, targetable: true }, // wall
   { traversal: 'blocked', moveCost: 1, targetable: true }, // building
 ]
+
+// Adds a kind at runtime and returns its id; tests use it, the product ships only the three built-ins.
+export function registerKind(kind: EnvironmentKind): number {
+  REGISTRY.push(kind)
+  return REGISTRY.length - 1
+}
 
 export function traversalOf(kind: number): Traversal {
   return REGISTRY[kind].traversal

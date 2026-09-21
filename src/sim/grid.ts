@@ -45,15 +45,16 @@ export class Grid {
     return traversalOf(this.kind[cell]) === 'passable'
   }
 
-  // Neighbor reached by dir, or -1 when blocked, out of bounds, or corner-cutting.
-  stepTarget(cell: number, dir: number): number {
+  // Neighbor reached by dir, or -1 when blocked, out of bounds, or corner-cutting; breakable cells count as reachable on request.
+  stepTarget(cell: number, dir: number, allowBreakable = false): number {
     const x = cell % this.width
     const y = (cell - x) / this.width
     const nx = x + DIR_DX[dir]
     const ny = y + DIR_DY[dir]
     if (!this.inBounds(nx, ny)) return -1
     const target = this.cellAt(nx, ny)
-    if (!this.isWalkable(target)) return -1
+    const enterable = this.isWalkable(target) || (allowBreakable && traversalOf(this.kind[target]) === 'breakable')
+    if (!enterable) return -1
     if (nx === x || ny === y) return target
     return this.isWalkable(this.cellAt(nx, y)) && this.isWalkable(this.cellAt(x, ny)) ? target : -1
   }
@@ -99,6 +100,14 @@ export class Grid {
 
   // Fills out with the free cells ringing the target's footprint and returns how many; out needs MAX_ATTACK_POSITIONS slots.
   attackPositions(targetKind: TargetKind, targetId: number, out: Int32Array): number {
+    const count = this.ringCells(targetKind, targetId, out)
+    let free = 0
+    for (let i = 0; i < count; i++) if (this.isWalkable(out[i])) out[free++] = out[i]
+    return free
+  }
+
+  // Fills out with every in-bounds cell around the target's footprint, whatever it holds, and returns how many.
+  ringCells(targetKind: TargetKind, targetId: number, out: Int32Array): number {
     let x0: number, y0: number, w: number, h: number
     if (targetKind === 'wall') {
       x0 = targetId % this.width
@@ -112,9 +121,7 @@ export class Grid {
     for (let y = y0 - 1; y <= y0 + h; y++) {
       for (let x = x0 - 1; x <= x0 + w; x++) {
         const insideFootprint = x >= x0 && x < x0 + w && y >= y0 && y < y0 + h
-        if (insideFootprint || !this.inBounds(x, y)) continue
-        const cell = this.cellAt(x, y)
-        if (this.isWalkable(cell)) out[count++] = cell
+        if (!insideFootprint && this.inBounds(x, y)) out[count++] = this.cellAt(x, y)
       }
     }
     return count

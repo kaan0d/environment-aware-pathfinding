@@ -1,7 +1,8 @@
 import { ClassicPlanner } from './ai/classic'
 import { BUILDING_TYPES, DT, TROOP_TYPES } from './config'
-import { traversalOf } from './environment'
+import { moveCostOf, traversalOf } from './environment'
 import { Grid } from './grid'
+import { TimeCostPlanner } from './planner/timeCostPlanner'
 import { mulberry32 } from './rng'
 import { Troop } from './troop'
 import type { DeployEvent, Plan, Planner, Scenario, SimEvent, TargetKind, WorldStats } from './types'
@@ -46,9 +47,26 @@ export class World {
     if (this.aliveBuildings === 0) this.finish()
   }
 
+  // Runs steps until every building is destroyed or maxSeconds of simulated time pass.
+  run(maxSeconds: number): void {
+    while (!this.finished && this.time < maxSeconds) this.step()
+  }
+
+  // Swaps the planner; call before the first step so the whole run uses one algorithm.
+  setPlanner(name: 'classic' | 'timecost'): void {
+    this.planner = name === 'classic' ? new ClassicPlanner(this.grid) : new TimeCostPlanner(this.grid)
+  }
+
+  // Editor hook: call after changing the grid so waiting and walking troops can pick a better plan.
+  notifyMapChanged(): void {
+    if (!this.planner.reconsidersOnChange) return
+    for (const troop of this.troops) if (this.canReconsider(troop)) this.reconsider(troop)
+  }
+
   // Overrides the troop's plan; before spawn the plan is kept and used instead of planning.
   forcePlan(troopId: number, plan: Plan): void {
     const troop = this.troops[troopId]
+    if (troop.plan !== null) troop.planChanges++
     this.releaseSlot(troop)
     troop.setPlan(plan)
     if (!troop.isActive()) return
@@ -134,16 +152,18 @@ export class World {
       const dx = (next % this.grid.width) + 0.5 - troop.x
       const dy = Math.floor(next / this.grid.width) + 0.5 - troop.y
       const distance = Math.sqrt(dx * dx + dy * dy)
-      if (distance > budget) {
-        troop.x += (dx / distance) * budget
-        troop.y += (dy / distance) * budget
-        troop.distance += budget
+      const moveCost = moveCostOf(this.grid.kind[next])
+      const stepCost = distance * moveCost // budget is spent in cost-weighted distance, so slow ground uses more of it
+      if (stepCost > budget) {
+        troop.x += (dx / stepCost) * budget
+        troop.y += (dy / stepCost) * budget
+        troop.distance += budget / moveCost
         return
       }
       troop.x += dx
       troop.y += dy
       troop.distance += distance
-      budget -= distance
+      budget -= stepCost
       troop.routeIdx++
     }
   }
@@ -211,9 +231,9 @@ export class World {
     }
     for (const troop of this.troops) {
       const lostTarget = troop.plan !== null && troop.plan.targetKind === kind && troop.plan.targetId === id
-      if (!lostTarget) continue
-      if (troop.state === 'notSpawned') troop.setPlan(null)
-      else if (troop.isActive()) this.replan(troop)
+      if (lostTarget && troop.state === 'notSpawned') troop.setPlan(null)
+      else if (lostTarget && troop.isActive()) this.replan(troop)
+      else if (this.planner.reconsidersOnChange && this.canReconsider(troop)) this.reconsider(troop)
     }
   }
 
@@ -221,6 +241,17 @@ export class World {
     const plan = this.planner.plan(this, troop.id)
     if (plan === null) this.finishTroop(troop)
     else this.forcePlan(troop.id, plan)
+  }
+
+  // Only troops that have not started hitting anything may change their mind.
+  private canReconsider(troop: Troop): boolean {
+    return troop.plan !== null && (troop.state === 'moving' || troop.state === 'waiting')
+  }
+
+  // Unlike replan, a missing or unchanged answer keeps the current plan.
+  private reconsider(troop: Troop): void {
+    const plan = this.planner.plan(this, troop.id)
+    if (plan !== null && plan !== troop.plan) this.forcePlan(troop.id, plan)
   }
 
   private releaseSlot(troop: Troop): void {

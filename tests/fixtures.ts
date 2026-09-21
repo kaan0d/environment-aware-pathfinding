@@ -69,3 +69,58 @@ export function sealedScenario(): Scenario {
     deployments: [{ t: 0, troopType: 'balanced', x: 2, y: 5 }],
   }
 }
+
+// Depot A is nearest in a straight line but ringed by level 5 walls; depot B is farther and open.
+export function walledDepotScenario(): Scenario {
+  const walls: Scenario['walls'] = []
+  for (let y = 4; y <= 6; y++) {
+    for (let x = 4; x <= 6; x++) if (x !== 5 || y !== 5) walls.push({ x, y, level: 5 })
+  }
+  return {
+    name: 'walled depot',
+    width: 40,
+    height: 12,
+    walls,
+    buildings: [
+      { type: 'depot', x: 5, y: 5 },
+      { type: 'depot', x: 30, y: 5 },
+    ],
+    spawns: [{ x: 12, y: 5 }],
+    deployments: [{ t: 0, troopType: 'balanced', x: 12, y: 5 }],
+  }
+}
+
+// Long wall at x=15 with level 5 cells except the listed open rows; depot at the far side, one heavy troop.
+export function gapScenario(openRows: number[], height = 26): Scenario {
+  const walls: Scenario['walls'] = []
+  for (let y = 0; y < height; y++) if (!openRows.includes(y)) walls.push({ x: 15, y, level: 5 })
+  return {
+    name: 'gaps',
+    width: 40,
+    height,
+    walls,
+    buildings: [{ type: 'depot', x: 30, y: 10 }],
+    spawns: [{ x: 2, y: 10 }],
+    deployments: [{ t: 0, troopType: 'heavy', x: 2, y: 10 }],
+  }
+}
+
+// Depots one above the other behind a level 2 wall; a heavy troop breaks the wall at 3 s, a fast one deploys at 1.4 s and first plans the detour.
+export function crowdedWallScenario(): Scenario {
+  return {
+    ...lCornerScenario(2),
+    name: 'crowded wall',
+    buildings: [
+      { type: 'depot', x: 10, y: 2 },
+      { type: 'depot', x: 10, y: 4 },
+    ],
+    spawns: [
+      { x: 5, y: 2 },
+      { x: 5, y: 6 },
+    ],
+    deployments: [
+      { t: 0, troopType: 'heavy', x: 5, y: 2 },
+      { t: 1.4, troopType: 'fast', x: 5, y: 6 },
+    ],
+  }
+}
