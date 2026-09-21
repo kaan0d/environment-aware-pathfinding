@@ -13,6 +13,7 @@ export function lCornerScenario(level: WallLevel = 1, troopType = 'balanced'): S
   const walls = Array.from({ length: 18 }, (_, y) => ({ x: 8, y, level }))
   return {
     name: 'L corner',
+    stackAttackers: false,
     width: 15,
     height: 20,
     walls,
@@ -38,6 +39,7 @@ export function lCornerDirectPlan(): Plan {
 export function singleSlotScenario(): Scenario {
   return {
     name: 'single slot',
+    stackAttackers: false,
     width: 12,
     height: 3,
     walls: [
@@ -61,6 +63,7 @@ export function sealedScenario(): Scenario {
   }
   return {
     name: 'sealed',
+    stackAttackers: false,
     width: 12,
     height: 10,
     walls,
@@ -78,6 +81,7 @@ export function walledDepotScenario(): Scenario {
   }
   return {
     name: 'walled depot',
+    stackAttackers: false,
     width: 40,
     height: 12,
     walls,
@@ -96,6 +100,7 @@ export function gapScenario(openRows: number[], height = 26): Scenario {
   for (let y = 0; y < height; y++) if (!openRows.includes(y)) walls.push({ x: 15, y, level: 5 })
   return {
     name: 'gaps',
+    stackAttackers: false,
     width: 40,
     height,
     walls,

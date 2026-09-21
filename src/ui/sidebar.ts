@@ -148,6 +148,15 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     session.reset()
   })
   group.append(groupInput, ' Groups share a plan')
+  const stack = el('label', 'check')
+  const stackInput = el('input')
+  stackInput.type = 'checkbox'
+  stackInput.addEventListener('change', () => {
+    session.scenario.stackAttackers = stackInput.checked
+    session.reset()
+  })
+  stack.append(stackInput, ' Attackers can share a cell')
+  const stackHint = el('p', 'description', 'On: any number of units hit a wall or building from the same cell. Off: one attacker per free cell around the target, the rest wait.')
   const radius = slider('Squad radius (cells)', 0, 12, 1, (v) => {
     squadSettings.radius = v
     session.reset()
@@ -164,11 +173,12 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
   restoreAlgo.addEventListener('click', () => {
     Object.assign(squadSettings, DEFAULT_SQUAD)
     session.groupBehavior = true
+    session.scenario.stackAttackers = true
     session.scenario.wallHpScale = 1
     session.reset()
     refresh()
   })
-  algoBox.append(group, radius.row, candidates.row, wallScale.row, restoreAlgo)
+  algoBox.append(stack, stackHint, group, radius.row, candidates.row, wallScale.row, restoreAlgo)
 
   root.append(scenarioBox, toolBox, selectedBox, unitBox, algoBox)
 
@@ -185,6 +195,7 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     dps.set(troop.dps)
     hp.set(troop.hp)
     groupInput.checked = session.groupBehavior
+    stackInput.checked = session.scenario.stackAttackers ?? true
     radius.set(squadSettings.radius)
     candidates.set(squadSettings.maxCandidates)
     wallScale.set(session.scenario.wallHpScale ?? 1)

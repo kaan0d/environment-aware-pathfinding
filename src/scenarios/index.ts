@@ -188,7 +188,7 @@ export const SCENARIOS: ScenarioEntry[] = [
   {
     id: 'narrow',
     name: '9. Narrow passage',
-    description: 'A tunnel one cell wide with a two-cell barrier in it. Twenty units queue behind the barrier but only one can hit it at a time, so a crowd does not help. Both algorithms have to break through, so the times are close.',
+    description: 'A tunnel one cell wide with a two-cell barrier in it. Both algorithms have to break through, so the times are close. With "Attackers can share a cell" on, all twenty units hit the barrier together; switch it off and they queue: only one attacker fits at each barrier cell.',
     scenario: NARROW,
   },
 ]

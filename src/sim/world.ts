@@ -17,6 +17,7 @@ export class World {
   readonly rng: () => number
   planner: Planner
   finishTime: number | null = null // set the step the last building falls
+  readonly stackAttackers: boolean // troops may share an attack cell; when false the one-attacker-per-position rule applies
   version = 0 // bumped whenever a plan made earlier may be out of date: spawn, destruction, map change
   private readonly slotHolder: Int32Array // troop id attacking from each cell, -1 when free
   private readonly slotFinder: SlotFinder
@@ -30,6 +31,7 @@ export class World {
     for (const wall of scenario.walls) this.grid.placeWall(wall.x, wall.y, wall.level, wall.hp ?? WALL_HP[wall.level - 1] * scale)
     for (const b of scenario.buildings) this.grid.placeBuilding(lookup(BUILDING_TYPES, b.type, 'building type'), b.x, b.y, b.hp)
     this.aliveBuildings = this.grid.buildings.length
+    this.stackAttackers = scenario.stackAttackers ?? true
     this.slotHolder = new Int32Array(this.grid.size).fill(-1)
     this.slotFinder = new SlotFinder(this.grid)
     this.rng = mulberry32(seed)
@@ -87,11 +89,12 @@ export class World {
 
   // True while a troop attacks from, or has reserved, this cell.
   isSlotHeld(cell: number): boolean {
-    return this.slotHolder[cell] !== -1
+    return !this.stackAttackers && this.slotHolder[cell] !== -1
   }
 
   // True when no other troop attacks from, or is heading to, this cell.
   slotAvailable(cell: number, troopId: number): boolean {
+    if (this.stackAttackers) return true
     const holder = this.slotHolder[cell]
     if (holder !== -1 && holder !== troopId) return false
     for (let i = 0; i < this.troops.length; i++) {
@@ -212,6 +215,10 @@ export class World {
 
   // One attacker per cell: a troop on a taken cell walks to a free attack position of the same target, or waits when none is left.
   private tryStartAttack(troop: Troop, mayRelocate = false): void {
+    if (this.stackAttackers) {
+      troop.state = 'attacking' // no position is reserved, everyone hits from where they stand
+      return
+    }
     const cell = this.grid.cellOfPoint(troop.x, troop.y)
     const holder = this.slotHolder[cell]
     if (holder === -1 || holder === troop.id) {

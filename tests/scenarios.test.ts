@@ -3,8 +3,10 @@ import { SCENARIOS } from '../src/scenarios'
 import { cloneScenario, validateScenario } from '../src/sim/scenario'
 import { World } from '../src/sim/world'
 
-function run(scenario: (typeof SCENARIOS)[number]['scenario'], planner: 'classic' | 'squad'): World {
-  const world = new World(scenario)
+type Scenario = (typeof SCENARIOS)[number]['scenario']
+
+function run(scenario: Scenario, planner: 'classic' | 'squad', stackAttackers = true): World {
+  const world = new World({ ...scenario, stackAttackers })
   world.setPlanner(planner)
   world.run(600)
   return world
@@ -21,12 +23,12 @@ describe('ready-made scenarios', () => {
         expect(warnings).toEqual([])
       })
 
-      it('finishes under both algorithms within 10 simulated minutes', () => {
-        const classic = run(entry.scenario, 'classic')
-        const fresh = run(entry.scenario, 'squad')
+      it.each([true, false])('finishes under both algorithms within 10 simulated minutes (stacking %s)', (stack) => {
+        const classic = run(entry.scenario, 'classic', stack)
+        const fresh = run(entry.scenario, 'squad', stack)
         expect(classic.finished).toBe(true)
         expect(fresh.finished).toBe(true)
-        times.push(`${entry.name}: classic ${classic.finishTime!.toFixed(2)} s, new ${fresh.finishTime!.toFixed(2)} s`)
+        times.push(`${entry.name} [${stack ? 'stacking' : 'positions'}]: classic ${classic.finishTime!.toFixed(2)} s, new ${fresh.finishTime!.toFixed(2)} s`)
       })
     })
   }

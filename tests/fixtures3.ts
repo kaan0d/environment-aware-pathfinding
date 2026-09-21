@@ -20,6 +20,7 @@ export function barrierScenario(corridor: boolean, count: number): Scenario {
   }
   return {
     name: corridor ? 'corridor' : 'barrier',
+    stackAttackers: false,
     width: 20,
     height: 11,
     walls,
@@ -52,7 +53,7 @@ export function eventTime(world: World, type: 'wallDestroyed' | 'buildingDestroy
 }
 
 // Small random map: walls of random level, a few buildings, one group of troops on a single free cell.
-export function randomScenario(seed: number): Scenario | null {
+export function randomScenario(seed: number, stackAttackers = false): Scenario | null {
   const random = mulberry32(seed)
   const width = 15
   const height = 15
@@ -82,7 +83,7 @@ export function randomScenario(seed: number): Scenario | null {
   const first = pick(troopTypes)
   const deployments: Scenario['deployments'] = [{ t: 0, troopType: first, x: spawn.x, y: spawn.y, count: 1 + Math.floor(random() * 6) }]
   if (random() < 0.4) deployments.push({ t: 0, troopType: pick(troopTypes), x: spawn.x, y: spawn.y, count: 1 + Math.floor(random() * 3) })
-  return { name: `random ${seed}`, width, height, walls, buildings, spawns: [spawn], deployments }
+  return { name: `random ${seed}`, stackAttackers, width, height, walls, buildings, spawns: [spawn], deployments }
 }
 
 export const oneTick = DT

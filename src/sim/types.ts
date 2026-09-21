@@ -33,6 +33,7 @@ export interface Scenario {
   width: number
   height: number
   wallHpScale?: number // multiplies the hit points of every wall that has no explicit hp
+  stackAttackers?: boolean // true (default): any number of troops may attack from the same cell; false: one attacker per attack position
   walls: { x: number; y: number; level: WallLevel; hp?: number }[]
   buildings: { type: string; x: number; y: number; hp?: number }[]
   spawns: { x: number; y: number }[] // allowed deploy points for the editor; the sim does not read them

@@ -179,6 +179,7 @@ function doubleLayerScenario(count: number): Scenario {
   }
   return {
     name: 'double layer',
+    stackAttackers: false,
     width: 30,
     height: 21,
     walls,

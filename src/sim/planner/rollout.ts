@@ -90,10 +90,15 @@ export class Rollout {
 
   private stageTime(world: World, members: readonly Troop[], arrivals: number[], route: Int32Array, stage: Stage): number {
     const approach = route[stage.approachIdx]
-    const slots = this.freeSlots(world, stage, approach) // an approach cell that is a wall counts as free: it will be gone
-    this.lastSlots = slots
     const byArrival = (a: number, b: number) => arrivals[a] - arrivals[b] || members[a].id - members[b].id
     const order = members.map((_, i) => i).sort(byArrival)
+    if (world.stackAttackers) {
+      // Everyone hits from the cell they arrive at: no positions to share out, nobody walks to another cell.
+      this.lastSlots = members.length
+      return breakTime(stage.hp, order.map((i) => arrivals[i]), order.map((i) => members[i].type.dps), members.length)
+    }
+    const slots = this.freeSlots(world, stage, approach) // an approach cell that is a wall counts as free: it will be gone
+    this.lastSlots = slots
     // The r-th troop to arrive takes the r-th nearest free position, which costs it a few more steps.
     const hitters = order
       .slice(0, slots)

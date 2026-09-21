@@ -108,7 +108,7 @@ export class SquadPlanner implements Planner {
 
   // Scores every candidate for the given troops (the leader is the first) and returns them best first, with a plan per member.
   evaluate(world: World, members: readonly Troop[]): Evaluated[] {
-    const strength = this.strengthOf(members)
+    const strength = this.strengthOf(members, world.stackAttackers)
     const scored = this.candidates(members[0], strength).map((candidate) => {
       const { total, stageTimes, stageSlots } = this.rollout.run(world, members, candidate.route, candidate.target)
       return { candidate, total, stageTimes, stageSlots, plans: new Map<number, Plan | null>() }
@@ -151,12 +151,12 @@ export class SquadPlanner implements Planner {
   }
 
   // Damage a squad brings to each wall and building: its strongest troops, as many as there are attack positions.
-  private strengthOf(members: readonly Troop[]): Strength {
+  private strengthOf(members: readonly Troop[], stacking: boolean): Strength {
     const { grid, wallDps, ring } = this
     const sorted = members.map((t) => t.type.dps).sort((a, b) => b - a)
     const prefix = [0]
     for (const dps of sorted) prefix.push(prefix[prefix.length - 1] + dps)
-    const damageWith = (slots: number) => prefix[Math.min(sorted.length, Math.max(1, slots))]
+    const damageWith = (slots: number) => prefix[stacking ? sorted.length : Math.min(sorted.length, Math.max(1, slots))]
     wallDps.fill(0)
     for (let cell = 0; cell < grid.size; cell++) {
       if (traversalOf(grid.kind[cell]) === 'breakable') wallDps[cell] = damageWith(this.sideSlots(cell))
