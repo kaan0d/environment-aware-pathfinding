@@ -11,6 +11,7 @@ export class Grid {
   readonly kind: Uint8Array // zero-filled, which is CellKind.empty
   readonly wallLevel: Uint8Array
   readonly hp: Float32Array // wall cells only; building hp lives on the Building
+  readonly maxHp: Float32Array // hit points a wall cell started with, for health bars
   readonly buildingId: Int32Array // -1 where no building stands
   readonly buildings: Building[] = []
 
@@ -22,6 +23,7 @@ export class Grid {
     this.kind = new Uint8Array(size)
     this.wallLevel = new Uint8Array(size)
     this.hp = new Float32Array(size)
+    this.maxHp = new Float32Array(size)
     this.buildingId = new Int32Array(size).fill(-1)
   }
 
@@ -59,15 +61,16 @@ export class Grid {
     return this.isWalkable(this.cellAt(nx, y)) && this.isWalkable(this.cellAt(x, ny)) ? target : -1
   }
 
-  placeWall(x: number, y: number, level: WallLevel): void {
+  placeWall(x: number, y: number, level: WallLevel, hp = WALL_HP[level - 1]): void {
     const cell = this.requireFreeCell(x, y)
     this.kind[cell] = CellKind.wall
     this.wallLevel[cell] = level
-    this.hp[cell] = WALL_HP[level - 1]
+    this.hp[cell] = hp
+    this.maxHp[cell] = this.hp[cell]
   }
 
-  placeBuilding(type: BuildingType, x: number, y: number): Building {
-    const building: Building = { id: this.buildings.length, type, x, y, w: type.w, h: type.h, hp: type.hp, alive: true }
+  placeBuilding(type: BuildingType, x: number, y: number, hp = type.hp): Building {
+    const building: Building = { id: this.buildings.length, type, x, y, w: type.w, h: type.h, hp, maxHp: hp, alive: true }
     for (let by = y; by < y + type.h; by++) {
       for (let bx = x; bx < x + type.w; bx++) {
         const cell = this.requireFreeCell(bx, by)

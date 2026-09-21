@@ -1,0 +1,20 @@
+// Every piece of visible text lives here, so translating the demo later touches one file.
+export const S = {
+  title: 'Environment-aware pathfinding',
+  classic: 'Classic',
+  classicSub: 'nearest building, walls are solid',
+  fresh: 'Time-cost + squad',
+  freshSub: 'walls priced in seconds, groups share a plan',
+  play: 'Play',
+  pause: 'Pause',
+  reset: 'Reset',
+  debug: 'Debug',
+  speed: 'Speed',
+  time: 'Time',
+  walls: 'Walls broken',
+  buildings: 'Buildings',
+  distance: 'Distance',
+  fasterBanner: (seconds: string, percent: string) => `The new algorithm is ${seconds} s (${percent}%) faster`,
+  slowerBanner: (seconds: string, percent: string) => `The new algorithm is ${seconds} s (${percent}%) slower`,
+  tieBanner: 'Both algorithms finished at the same time',
+}

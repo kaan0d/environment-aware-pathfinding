@@ -1,5 +1,5 @@
 import { ClassicPlanner } from './ai/classic'
-import { BUILDING_TYPES, DT, TROOP_TYPES } from './config'
+import { BUILDING_TYPES, DT, TROOP_TYPES, WALL_HP } from './config'
 import { moveCostOf, traversalOf } from './environment'
 import { Grid } from './grid'
 import { SquadPlanner } from './planner/squadPlanner'
@@ -26,14 +26,15 @@ export class World {
 
   constructor(scenario: Scenario, seed = 1) {
     this.grid = new Grid(scenario.width, scenario.height)
-    for (const wall of scenario.walls) this.grid.placeWall(wall.x, wall.y, wall.level)
-    for (const b of scenario.buildings) this.grid.placeBuilding(lookup(BUILDING_TYPES, b.type, 'building type'), b.x, b.y)
+    const scale = scenario.wallHpScale ?? 1
+    for (const wall of scenario.walls) this.grid.placeWall(wall.x, wall.y, wall.level, wall.hp ?? WALL_HP[wall.level - 1] * scale)
+    for (const b of scenario.buildings) this.grid.placeBuilding(lookup(BUILDING_TYPES, b.type, 'building type'), b.x, b.y, b.hp)
     this.aliveBuildings = this.grid.buildings.length
     this.slotHolder = new Int32Array(this.grid.size).fill(-1)
     this.slotFinder = new SlotFinder(this.grid)
     this.rng = mulberry32(seed)
     this.planner = new ClassicPlanner(this.grid)
-    this.createTroops(scenario.deployments)
+    this.addDeployments(scenario.deployments)
   }
 
   get time(): number {
@@ -118,8 +119,15 @@ export class World {
     }
   }
 
-  private createTroops(deployments: DeployEvent[]): void {
-    const byTime = [...deployments].sort((a, b) => a.t - b.t) // stable, so ids follow scenario order per time
+  // Adds a deploy event while the run is going; troops that have not landed yet are renumbered behind it, in time order.
+  addDeployment(deploy: DeployEvent): void {
+    const waiting = this.troops.splice(this.nextSpawn).map((t) => ({ t: t.spawnTime, troopType: t.type.id, x: t.spawnX, y: t.spawnY }))
+    this.addDeployments([...waiting, deploy])
+  }
+
+  // Creates the troops of the events, sorted by time (stable, so ids follow the given order per time).
+  private addDeployments(deployments: DeployEvent[]): void {
+    const byTime = [...deployments].sort((a, b) => a.t - b.t)
     for (const deploy of byTime) {
       const type = lookup(TROOP_TYPES, deploy.troopType, 'troop type')
       if (!this.grid.inBounds(deploy.x, deploy.y) || !this.grid.isWalkable(this.grid.cellAt(deploy.x, deploy.y))) {

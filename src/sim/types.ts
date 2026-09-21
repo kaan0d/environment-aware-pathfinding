@@ -32,8 +32,9 @@ export interface Scenario {
   name: string
   width: number
   height: number
-  walls: { x: number; y: number; level: WallLevel }[]
-  buildings: { type: string; x: number; y: number }[]
+  wallHpScale?: number // multiplies the hit points of every wall that has no explicit hp
+  walls: { x: number; y: number; level: WallLevel; hp?: number }[]
+  buildings: { type: string; x: number; y: number; hp?: number }[]
   spawns: { x: number; y: number }[] // allowed deploy points for the editor; the sim does not read them
   deployments: DeployEvent[]
 }
@@ -46,6 +47,7 @@ export interface Building {
   w: number
   h: number
   hp: number
+  maxHp: number
   alive: boolean
 }
 

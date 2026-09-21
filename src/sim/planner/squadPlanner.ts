@@ -1,4 +1,4 @@
-import { MAX_ATTACK_POSITIONS, HYSTERESIS, MAX_BUILDING_CANDIDATES, MAX_CANDIDATES, SQUAD_RADIUS, SQUAD_UPDATE_HZ } from '../config'
+import { MAX_ATTACK_POSITIONS, HYSTERESIS, SQUAD_UPDATE_HZ, squadSettings } from '../config'
 import { traversalOf } from '../environment'
 import type { Grid } from '../grid'
 import type { Troop } from '../troop'
@@ -39,6 +39,7 @@ export interface Evaluated {
   candidate: Candidate
   total: number // rollout estimate, seconds from now until the target falls
   stageTimes: Float64Array
+  stageSlots: Int32Array // free attack positions counted at each wall and finally the building
   plans: Map<number, Plan | null> // one plan per member, null when a member cannot reach the goal this way
 }
 
@@ -52,7 +53,7 @@ export class SquadPlanner implements Planner {
   private readonly wallDps: Float64Array
   private readonly banned: Uint8Array
   private readonly ring = new Int32Array(MAX_ATTACK_POSITIONS)
-  private squadOf = new Map<number, Troop[]>()
+  private squadByTroop = new Map<number, Troop[]>()
   private squadKeys = new Set<string>()
   private notifiedKeys = new Set<string>() // the squads the world was last told about
   private clusteredAt = -Infinity
@@ -74,7 +75,7 @@ export class SquadPlanner implements Planner {
   plan(world: World, troopId: number): Plan | null {
     if (!this.group) return this.solo.plan(world, troopId)
     this.recluster(world, false)
-    const squad = this.squadOf.get(troopId)
+    const squad = this.squadByTroop.get(troopId)
     if (squad === undefined) return this.solo.plan(world, troopId)
     if (this.decisionsVersion !== world.version) {
       this.decisions.clear()
@@ -100,12 +101,17 @@ export class SquadPlanner implements Planner {
     if (changed && !first) world.notifyMapChanged()
   }
 
+  // The squad a troop belongs to right now, for the debug view.
+  squadOf(troopId: number): readonly Troop[] | undefined {
+    return this.squadByTroop.get(troopId)
+  }
+
   // Scores every candidate for the given troops (the leader is the first) and returns them best first, with a plan per member.
   evaluate(world: World, members: readonly Troop[]): Evaluated[] {
     const strength = this.strengthOf(members)
     const scored = this.candidates(members[0], strength).map((candidate) => {
-      const { total, stageTimes } = this.rollout.run(world, members, candidate.route, candidate.target)
-      return { candidate, total, stageTimes, plans: new Map<number, Plan | null>() }
+      const { total, stageTimes, stageSlots } = this.rollout.run(world, members, candidate.route, candidate.target)
+      return { candidate, total, stageTimes, stageSlots, plans: new Map<number, Plan | null>() }
     })
     scored.sort((a, b) => a.total - b.total)
     for (const entry of scored) entry.plans = this.plansFor(entry, members, strength)
@@ -116,9 +122,9 @@ export class SquadPlanner implements Planner {
     if (!force && this.clusteredVersion === world.version) return
     this.clusteredAt = world.time
     this.clusteredVersion = world.version
-    const squads = clusterSquads(world.troops.filter((t) => t.isActive()), SQUAD_RADIUS)
-    this.squadOf.clear()
-    for (const squad of squads) for (const troop of squad) this.squadOf.set(troop.id, squad)
+    const squads = clusterSquads(world.troops.filter((t) => t.isActive()), squadSettings.radius)
+    this.squadByTroop.clear()
+    for (const squad of squads) for (const troop of squad) this.squadByTroop.set(troop.id, squad)
     this.squadKeys = new Set(squads.map((squad) => squad.map((t) => t.id).join(',')))
   }
 
@@ -184,7 +190,7 @@ export class SquadPlanner implements Planner {
     const found: Candidate[] = []
     const seen = new Set<string>()
     const add = (spec: Spec) => {
-      if (found.length >= MAX_CANDIDATES) return
+      if (found.length >= squadSettings.maxCandidates) return
       this.runField(spec, strength, [start])
       if (this.field.value[start] === Infinity) return
       const route = this.field.routeFrom(start)
@@ -200,7 +206,7 @@ export class SquadPlanner implements Planner {
     const others = grid.buildings
       .filter((b) => b.alive && b.id !== found[0]?.target)
       .sort((a, b) => this.distanceSq(leader, a) - this.distanceSq(leader, b) || a.id - b.id)
-    for (const building of others.slice(0, MAX_BUILDING_CANDIDATES - 1)) {
+    for (const building of others.slice(0, squadSettings.maxBuildingCandidates - 1)) {
       add({ ...FREE, onlyBuilding: building.id })
     }
     for (const cell of found[0]?.walls ?? []) add({ ...FREE, bannedCells: [cell] })

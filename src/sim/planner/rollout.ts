@@ -11,6 +11,7 @@ import { breakTime } from './breakTime'
 export interface RolloutResult {
   total: number // seconds from now until the target building falls, Infinity if it never does
   stageTimes: Float64Array // seconds until each wall on the route falls, then the building
+  stageSlots: Int32Array // free attack positions the squad counted at each of those targets
 }
 
 interface Stage {
@@ -25,6 +26,7 @@ export class Rollout {
   private readonly search: RouteSearch
   private readonly slots: SlotFinder
   private readonly seeds = new Int32Array(MAX_ATTACK_POSITIONS)
+  private lastSlots = 0 // attack positions counted by the latest stageTime call
 
   constructor(private readonly grid: Grid) {
     this.search = new RouteSearch(grid)
@@ -35,6 +37,7 @@ export class Rollout {
   run(world: World, members: readonly Troop[], route: Int32Array, buildingId: number): RolloutResult {
     const stages = this.stagesOf(route, buildingId)
     const times = new Float64Array(stages.length)
+    const slotCounts = new Int32Array(stages.length)
     let arrivals = this.firstArrivals(members, route, stages[0])
     const opened: { cell: number; kind: number }[] = []
     try {
@@ -46,11 +49,12 @@ export class Rollout {
           this.openWall(stages[s - 1], opened) // slots of later stages are counted with the earlier walls gone
         }
         times[s] = this.stageTime(world, members, arrivals, route, stage)
+        slotCounts[s] = this.lastSlots
       }
     } finally {
       for (const { cell, kind } of opened) this.grid.kind[cell] = kind
     }
-    return { total: times[times.length - 1], stageTimes: times }
+    return { total: times[times.length - 1], stageTimes: times, stageSlots: slotCounts }
   }
 
   private openWall(stage: Stage, opened: { cell: number; kind: number }[]): void {
@@ -87,6 +91,7 @@ export class Rollout {
   private stageTime(world: World, members: readonly Troop[], arrivals: number[], route: Int32Array, stage: Stage): number {
     const approach = route[stage.approachIdx]
     const slots = this.freeSlots(world, stage, approach) // an approach cell that is a wall counts as free: it will be gone
+    this.lastSlots = slots
     const byArrival = (a: number, b: number) => arrivals[a] - arrivals[b] || members[a].id - members[b].id
     const order = members.map((_, i) => i).sort(byArrival)
     // The r-th troop to arrive takes the r-th nearest free position, which costs it a few more steps.
