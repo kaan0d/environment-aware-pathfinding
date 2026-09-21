@@ -119,10 +119,10 @@ const REINFORCEMENTS = scenario(
   [{ x: 12, y: 6 }, { x: 12, y: 10 }],
 )
 
-// A one-cell corridor of strong walls with a thick barrier in the middle; twenty troops cannot all reach it.
+// A tunnel one cell wide through the whole map, closed by a two-cell barrier; only one attacker fits at each barrier cell.
 const NARROW = scenario(
   'Narrow passage',
-  [...row(13, 8, 32, 5), ...row(15, 8, 32, 5), ...column(18, 14, 14, 4), ...column(19, 14, 14, 4), ...column(20, 14, 14, 4)],
+  [...row(13, 0, 39, 5), ...row(15, 0, 39, 5), ...column(18, 14, 14, 3), ...column(19, 14, 14, 3)],
   [{ type: 'depot', x: 35, y: 14 }],
   [{ t: 0, troopType: 'balanced', x: 4, y: 14, count: 20 }],
   [{ x: 4, y: 14 }],
@@ -188,7 +188,7 @@ export const SCENARIOS: ScenarioEntry[] = [
   {
     id: 'narrow',
     name: '9. Narrow passage',
-    description: 'A corridor one cell wide with a thick barrier in it. Twenty units cannot all hit it: only the units on free cells next to the barrier do damage, so a crowd helps less than expected.',
+    description: 'A tunnel one cell wide with a two-cell barrier in it. Twenty units queue behind the barrier but only one can hit it at a time, so a crowd does not help. Both algorithms have to break through, so the times are close.',
     scenario: NARROW,
   },
 ]

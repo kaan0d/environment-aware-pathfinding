@@ -159,7 +159,7 @@ export class SquadPlanner implements Planner {
     const damageWith = (slots: number) => prefix[Math.min(sorted.length, Math.max(1, slots))]
     wallDps.fill(0)
     for (let cell = 0; cell < grid.size; cell++) {
-      if (traversalOf(grid.kind[cell]) === 'breakable') wallDps[cell] = damageWith(this.freeNeighbors(cell))
+      if (traversalOf(grid.kind[cell]) === 'breakable') wallDps[cell] = damageWith(this.sideSlots(cell))
     }
     const buildingDps = new Float64Array(grid.buildings.length)
     for (const building of grid.buildings) {
@@ -169,18 +169,25 @@ export class SquadPlanner implements Planner {
     return { speed, dps: sorted[0], wallDps, buildingDps }
   }
 
-  private freeNeighbors(cell: number): number {
+  // Free cells on the best side of the cell (west, east, north or south line of three): how many attackers a squad
+  // can bring at once when it comes from one side. Counting all eight neighbors would credit a wall in a row with
+  // the cells on its far side too and make it look twice as cheap to break.
+  private sideSlots(cell: number): number {
     const { grid } = this
     const x = cell % grid.width
     const y = (cell - x) / grid.width
-    let free = 0
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const inside = grid.inBounds(x + dx, y + dy)
-        if ((dx !== 0 || dy !== 0) && inside && grid.isWalkable(grid.cellAt(x + dx, y + dy))) free++
-      }
+    const free = (cx: number, cy: number) => (grid.inBounds(cx, cy) && grid.isWalkable(grid.cellAt(cx, cy)) ? 1 : 0)
+    let west = 0
+    let east = 0
+    let north = 0
+    let south = 0
+    for (let d = -1; d <= 1; d++) {
+      west += free(x - 1, y + d)
+      east += free(x + 1, y + d)
+      north += free(x + d, y - 1)
+      south += free(x + d, y + 1)
     }
-    return free
+    return Math.max(west, east, north, south)
   }
 
   // Up to MAX_CANDIDATES distinct routes from the leader: the best free route, the full detour, other buildings, banned walls.

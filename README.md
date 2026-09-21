@@ -57,7 +57,7 @@ Time to destroy every building, in simulated seconds (`npm test` prints these). 
 | 6. Maze: serpentine with thin spots | 47.33 | 20.13 | 57% faster |
 | 7. Crowd effect: one unit against a level 4 wall | 21.07 | 21.07 | same (1 or 2 units walk around, 3 or more break the wall) |
 | 8. Reinforcements: 3 units, 10 more 2.5 s later | 17.00 | 14.63 | 14% faster |
-| 9. Narrow passage: 20 units, one-cell corridor | 14.10 | 14.17 | same (slots limit the crowd) |
+| 9. Narrow passage: 20 units, tunnel closed by a two-cell barrier | 38.10 | 38.10 | same (one attacker fits at each barrier cell) |
 
 ![The castle scenario](docs/screenshots/castle.png)
 
@@ -66,7 +66,7 @@ More detail:
 - **Single unit, L-corner, every unit type and wall level:** the new algorithm breaks the wall exactly where breaking is faster (a level 1 wall for a fast unit, up to level 5 for a heavy one) and walks around otherwise; its own time estimate is within 1.0% of the real time.
 - **Crowd threshold:** level 4 wall, balanced units: 1 walks around, 2 break (15.13 s against classic's 16.63 s), 8 break (10.17 s against 14.90 s).
 - **Attack slots:** a wall with 1 free position falls in 22.03 s for 3, 8 and 50 troops alike; one with 3 positions in 9.00 s.
-- **Oracle:** on 200 random 15x15 maps every candidate plan is run in the real simulation. The planner's pick is within 5% of the best candidate in 200 of 200 maps (worst 1.021), estimate error 1.2%. On two fresh sets of 200 maps: 199 and 198 within 5%, worst 1.146 and 1.107.
+- **Oracle:** on 200 random 15x15 maps every candidate plan is run in the real simulation. The planner's pick is within 5% of the best candidate in 199 of 200 maps (worst 1.052), estimate error 1.2%. On two fresh sets of 200 maps: 199 and 199 within 5%, worst 1.146 and 1.107.
 - **Speed:** one flow field 0.57 ms (40x28) and 6.0 ms (100x100). A full squad planning round on a busy 40x28 map (10 squads, 50 troops) takes 25 ms, about 2.4 ms per squad.
 - **Rendering:** with 30 units in both panels, 19.5 ms per frame (about 51 fps), 26.1 ms with debug on, in headless Chrome with software WebGL at 1400x800. JavaScript takes under 1 ms of that. A real GPU is not measured.
 
