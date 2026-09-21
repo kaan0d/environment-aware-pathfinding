@@ -4,6 +4,12 @@ Pathfinding that treats the environment as a decision input, not a fixed obstacl
 
 Stack: TypeScript (strict), Vite, Vitest. Render layer (PixiJS) arrives in Stage 4.
 
+## Why a fixed rule is not enough
+
+Many games already have a rule for this: when the way around gets very long, the unit gives up on it and attacks the wall. The rule is usually a fixed limit (a path longer than N cells, or no path at all), not a comparison of what breaking the wall costs against what walking costs. So it fires at the wrong moment: a long walk around a wall a few hits would remove, or hits on a thick wall beside a short way around. Time is lost either way, and finding a long path only to drop it costs computing time too. This is an observation from playing such games, not a measurement, and no real game's code was read.
+
+The classic AI here is the simplest form of that behavior (breaks only when no path exists). A version with a path-length limit is not built; it would be a third planner if it turns out to be the fairer opponent.
+
 ## Status
 
 | Stage | What | State |
