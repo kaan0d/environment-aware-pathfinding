@@ -2,8 +2,10 @@ import { ClassicPlanner } from './ai/classic'
 import { BUILDING_TYPES, DT, TROOP_TYPES } from './config'
 import { moveCostOf, traversalOf } from './environment'
 import { Grid } from './grid'
+import { SquadPlanner } from './planner/squadPlanner'
 import { TimeCostPlanner } from './planner/timeCostPlanner'
 import { mulberry32 } from './rng'
+import { SlotFinder } from './slots'
 import { Troop } from './troop'
 import type { DeployEvent, Plan, Planner, Scenario, SimEvent, TargetKind, WorldStats } from './types'
 
@@ -15,7 +17,9 @@ export class World {
   readonly rng: () => number
   planner: Planner
   finishTime: number | null = null // set the step the last building falls
+  version = 0 // bumped whenever a plan made earlier may be out of date: spawn, destruction, map change
   private readonly slotHolder: Int32Array // troop id attacking from each cell, -1 when free
+  private readonly slotFinder: SlotFinder
   private tick = 0
   private nextSpawn = 0
   private aliveBuildings = 0
@@ -26,6 +30,7 @@ export class World {
     for (const b of scenario.buildings) this.grid.placeBuilding(lookup(BUILDING_TYPES, b.type, 'building type'), b.x, b.y)
     this.aliveBuildings = this.grid.buildings.length
     this.slotHolder = new Int32Array(this.grid.size).fill(-1)
+    this.slotFinder = new SlotFinder(this.grid)
     this.rng = mulberry32(seed)
     this.planner = new ClassicPlanner(this.grid)
     this.createTroops(scenario.deployments)
@@ -43,6 +48,7 @@ export class World {
     if (this.finished) return
     this.tick++
     this.spawnDue()
+    this.planner.onStep?.(this)
     for (let i = 0; i < this.troops.length; i++) this.stepTroop(this.troops[i])
     if (this.aliveBuildings === 0) this.finish()
   }
@@ -53,12 +59,16 @@ export class World {
   }
 
   // Swaps the planner; call before the first step so the whole run uses one algorithm.
-  setPlanner(name: 'classic' | 'timecost'): void {
-    this.planner = name === 'classic' ? new ClassicPlanner(this.grid) : new TimeCostPlanner(this.grid)
+  // 'squad' shares plans inside groups of nearby troops; group: false gives every troop its own plan, like 'timecost'.
+  setPlanner(name: 'classic' | 'timecost' | 'squad', options: { group?: boolean } = {}): void {
+    if (name === 'classic') this.planner = new ClassicPlanner(this.grid)
+    else if (name === 'timecost') this.planner = new TimeCostPlanner(this.grid)
+    else this.planner = new SquadPlanner(this.grid, options.group ?? true)
   }
 
   // Editor hook: call after changing the grid so waiting and walking troops can pick a better plan.
   notifyMapChanged(): void {
+    this.version++
     if (!this.planner.reconsidersOnChange) return
     for (const troop of this.troops) if (this.canReconsider(troop)) this.reconsider(troop)
   }
@@ -72,6 +82,11 @@ export class World {
     if (!troop.isActive()) return
     troop.state = 'moving'
     this.alignRoute(troop)
+  }
+
+  // True while a troop attacks from, or has reserved, this cell.
+  isSlotHeld(cell: number): boolean {
+    return this.slotHolder[cell] !== -1
   }
 
   // True when no other troop attacks from, or is heading to, this cell.
@@ -116,19 +131,25 @@ export class World {
     }
   }
 
+  // Everything due lands first and is planned afterwards, so a planner sees the whole group that deploys together.
   private spawnDue(): void {
+    const first = this.nextSpawn
     while (this.nextSpawn < this.troops.length && this.troops[this.nextSpawn].spawnTime <= this.time) {
-      this.spawn(this.troops[this.nextSpawn++])
+      this.place(this.troops[this.nextSpawn++])
+    }
+    for (let i = first; i < this.nextSpawn; i++) {
+      const troop = this.troops[i]
+      if (troop.plan === null) this.replan(troop)
+      else this.alignRoute(troop)
     }
   }
 
-  private spawn(troop: Troop): void {
+  private place(troop: Troop): void {
+    this.version++
     troop.state = 'moving'
     troop.x = troop.spawnX + 0.5
     troop.y = troop.spawnY + 0.5
     this.log({ t: this.time, type: 'deploy', troopId: troop.id, troopType: troop.type.id, x: troop.spawnX, y: troop.spawnY })
-    if (troop.plan === null) this.replan(troop)
-    else this.alignRoute(troop)
   }
 
   private stepTroop(troop: Troop): void {
@@ -178,17 +199,38 @@ export class World {
     troop.attackKind = kind
     troop.attackId = id
     troop.state = 'waiting'
-    this.tryStartAttack(troop)
+    this.tryStartAttack(troop, true)
   }
 
-  // One attacker per cell: the troop waits until the cell it stands on is free.
-  private tryStartAttack(troop: Troop): void {
+  // One attacker per cell: a troop on a taken cell walks to a free attack position of the same target, or waits when none is left.
+  private tryStartAttack(troop: Troop, mayRelocate = false): void {
     const cell = this.grid.cellOfPoint(troop.x, troop.y)
     const holder = this.slotHolder[cell]
-    if (holder !== -1 && holder !== troop.id) return
-    this.slotHolder[cell] = troop.id
-    troop.attackCell = cell
-    troop.state = 'attacking'
+    if (holder === -1 || holder === troop.id) {
+      this.slotHolder[cell] = troop.id
+      troop.attackCell = cell
+      troop.state = 'attacking'
+    } else if (mayRelocate) this.relocate(troop, cell)
+  }
+
+  // Reserves the nearest free attack position and splices the walk there into the plan's route.
+  private relocate(troop: Troop, cell: number): void {
+    const plan = troop.plan!
+    const taken = (c: number) => this.slotHolder[c] !== -1 && this.slotHolder[c] !== troop.id
+    if (this.slotFinder.search(troop.attackKind!, troop.attackId, cell, taken) === 0) return
+    const slot = this.slotFinder.found[0]
+    const walk = this.slotFinder.pathTo(slot)
+    const breaksRouteWall = troop.attackKind === 'wall' && plan.route[troop.routeIdx] === troop.attackId
+    const rest = breaksRouteWall ? plan.route.subarray(troop.routeIdx) : plan.route.subarray(plan.route.length)
+    const route = new Int32Array(walk.length + rest.length)
+    route.set(walk)
+    route.set(rest, walk.length)
+    troop.plan = { ...plan, route }
+    troop.routeIdx = 0
+    this.alignRoute(troop)
+    this.slotHolder[slot] = troop.id
+    troop.attackCell = slot
+    troop.state = 'moving'
   }
 
   private strike(troop: Troop): void {
@@ -220,9 +262,9 @@ export class World {
 
   // Frees every attacker of the dead target first, so replanning sees the freed slots.
   private onTargetDestroyed(kind: TargetKind, id: number): void {
+    this.version++
     for (const troop of this.troops) {
-      const attackingIt =
-        (troop.state === 'attacking' || troop.state === 'waiting') && troop.attackKind === kind && troop.attackId === id
+      const attackingIt = troop.isActive() && troop.attackKind === kind && troop.attackId === id
       if (!attackingIt) continue
       this.releaseSlot(troop)
       troop.state = 'moving'

@@ -1,5 +1,6 @@
 import { moveCostOf, traversalOf } from '../environment'
 import type { Grid } from '../grid'
+import type { Troop } from '../troop'
 
 // Seconds for one troop to walk one step of the given length into a cell, breaking it first when it is breakable.
 export function enterCost(grid: Grid, cell: number, stepLength: number, speed: number, dps: number): number {
@@ -27,4 +28,14 @@ export function routeTime(
     y = cy
   }
   return time
+}
+
+// A plan stays usable while its building lives and no remaining route cell became impassable.
+export function isPlanValid(grid: Grid, troop: Troop): boolean {
+  const plan = troop.plan
+  if (plan === null || plan.targetKind !== 'building' || !grid.buildings[plan.targetId].alive) return false
+  for (let i = troop.routeIdx; i < plan.route.length; i++) {
+    if (traversalOf(grid.kind[plan.route[i]]) === 'blocked') return false
+  }
+  return true
 }

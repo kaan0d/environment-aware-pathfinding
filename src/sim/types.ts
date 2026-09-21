@@ -56,6 +56,7 @@ export interface Plan {
   route: Int32Array // cell indices
   breakCells: Int32Array // wall cells on the route, informational for render and UI
   estTotalTime: number
+  stageTimes?: Float64Array // squad plans: seconds from now until each wall on the route and finally the building fall
 }
 
 export interface Planner {
@@ -63,6 +64,8 @@ export interface Planner {
   plan(world: World, troopId: number): Plan | null
   // Set when a destroyed wall or building can improve other troops' plans, so the world offers them a re-plan.
   readonly reconsidersOnChange?: boolean
+  // Called once per world step after deploys, for planners that keep their own state such as squads.
+  onStep?(world: World): void
 }
 
 export type SimEvent =

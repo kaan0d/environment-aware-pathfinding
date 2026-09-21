@@ -4,7 +4,7 @@ import type { Grid } from '../grid'
 import type { Troop } from '../troop'
 import type { Plan, Planner } from '../types'
 import type { World } from '../world'
-import { routeTime } from './cost'
+import { isPlanValid, routeTime } from './cost'
 import { FlowField } from './flowField'
 
 // Picks target and route by total seconds: walking, breaking walls on the way, then destroying the building.
@@ -23,7 +23,7 @@ export class TimeCostPlanner implements Planner {
     // Taken attack positions are skipped so troops spread out; when nothing is left, share one.
     this.field.compute(speed, dps, (cell) => world.slotAvailable(cell, troopId))
     if (this.field.value[start] === Infinity) this.field.compute(speed, dps, null)
-    const current = this.stillValid(troop) ? troop.plan : null
+    const current = isPlanValid(this.grid, troop) ? troop.plan : null
     if (this.field.value[start] === Infinity) return current
     const best = this.planFromField(troop, start)
     if (current === null) return best
@@ -49,15 +49,5 @@ export class TimeCostPlanner implements Planner {
   private remainingTime(troop: Troop, plan: Plan): number {
     const walk = routeTime(this.grid, troop.x, troop.y, plan.route, troop.routeIdx, troop.type.speed, troop.type.dps)
     return walk + this.grid.buildings[plan.targetId].hp / troop.type.dps
-  }
-
-  // A plan is kept only while its building lives and no remaining route cell became impassable.
-  private stillValid(troop: Troop): boolean {
-    const plan = troop.plan
-    if (plan === null || plan.targetKind !== 'building' || !this.grid.buildings[plan.targetId].alive) return false
-    for (let i = troop.routeIdx; i < plan.route.length; i++) {
-      if (traversalOf(this.grid.kind[plan.route[i]]) === 'blocked') return false
-    }
-    return true
   }
 }
