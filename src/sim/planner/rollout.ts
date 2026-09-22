@@ -45,10 +45,13 @@ export class Rollout {
         const stage = stages[s]
         if (s > 0) {
           const length = this.walkLength(route, stages[s - 1].approachIdx, stage.approachIdx)
-          arrivals = arrivals.map((arrival, i) => Math.max(times[s - 1], arrival) + length / members[i].type.speed)
+          // arrivals here are last stage's ready times: a member bumped to a farther position stays behind.
+          arrivals = arrivals.map((ready, i) => Math.max(times[s - 1], ready) + length / members[i].type.speed)
           this.openWall(stages[s - 1], opened) // slots of later stages are counted with the earlier walls gone
         }
-        times[s] = this.stageTime(world, members, arrivals, route, stage)
+        const result = this.stageTime(world, members, arrivals, route, stage)
+        times[s] = result.time
+        arrivals = result.ready
         slotCounts[s] = this.lastSlots
       }
     } finally {
@@ -88,28 +91,37 @@ export class Rollout {
     return count
   }
 
-  private stageTime(world: World, members: readonly Troop[], arrivals: number[], route: Int32Array, stage: Stage): number {
+  // Returns the break time and, per member (by its original index, not arrival rank), the time it is free to
+  // leave this stage: a member bumped to a farther attack position is not done until it actually walks there,
+  // which the next stage's walk has to start from - not the time it would have arrived with no one in its way.
+  private stageTime(world: World, members: readonly Troop[], arrivals: number[], route: Int32Array, stage: Stage): { time: number; ready: number[] } {
     const approach = route[stage.approachIdx]
     const byArrival = (a: number, b: number) => arrivals[a] - arrivals[b] || members[a].id - members[b].id
     const order = members.map((_, i) => i).sort(byArrival)
     if (world.stackAttackers) {
       // Everyone hits from the cell they arrive at: no positions to share out, nobody walks to another cell.
       this.lastSlots = members.length
-      return breakTime(stage.hp, order.map((i) => arrivals[i]), order.map((i) => members[i].type.dps), members.length)
+      return { time: breakTime(stage.hp, order.map((i) => arrivals[i]), order.map((i) => members[i].type.dps), members.length), ready: arrivals }
     }
     const slots = this.freeSlots(world, stage, approach) // an approach cell that is a wall counts as free: it will be gone
     this.lastSlots = slots
     // The r-th troop to arrive takes the r-th nearest free position, which costs it a few more steps.
+    const ready = arrivals.slice()
     const hitters = order
       .slice(0, slots)
-      .map((i, rank) => ({ arrival: arrivals[i] + this.slots.foundDepth[rank] / members[i].type.speed, dps: members[i].type.dps }))
+      .map((i, rank) => {
+        const arrival = arrivals[i] + this.slots.foundDepth[rank] / members[i].type.speed
+        ready[i] = arrival
+        return { arrival, dps: members[i].type.dps }
+      })
       .sort((a, b) => a.arrival - b.arrival)
-    return breakTime(
+    const time = breakTime(
       stage.hp,
       hitters.map((h) => h.arrival),
       hitters.map((h) => h.dps),
       hitters.length,
     )
+    return { time, ready }
   }
 
   // Cost-weighted length of the route between two indices, in cells.

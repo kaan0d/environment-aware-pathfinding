@@ -6,7 +6,9 @@ import { L_CORNER } from './scenarios'
 import { Debug } from './ui/debug'
 import { buildDebugPanel } from './ui/debugPanel'
 import { Editor } from './ui/editor'
+import { openPlaceMenu } from './ui/placeMenu'
 import { buildSidebar } from './ui/sidebar'
+import { buildToolbar } from './ui/toolbar'
 import { Banner, PanelHud } from './ui/hud'
 import { buildControls } from './ui/controls'
 import { Session } from './ui/session'
@@ -16,6 +18,11 @@ const HUD_STRIP = 100 // room above each map for its readout
 
 async function main(): Promise<void> {
   const bar = document.getElementById('bar')!
+  const barTop = document.createElement('div')
+  barTop.className = 'bar-row'
+  const barTools = document.createElement('div')
+  barTools.className = 'bar-row'
+  bar.append(barTop, barTools)
   const stage = document.getElementById('stage')!
   const app = new Application()
   await app.init({ resizeTo: stage, background: 0x1b2a1f, antialias: true, autoDensity: true, resolution: window.devicePixelRatio || 1 })
@@ -55,7 +62,7 @@ async function main(): Promise<void> {
   layout()
   app.renderer.on('resize', layout)
 
-  buildControls(bar, session, () => session.reset())
+  buildControls(barTop, session, () => session.reset())
 
   // Debug view: a toggle in the bar, selection by clicking a unit, layers per panel and a section in the sidebar.
   const debug = new Debug(session)
@@ -68,11 +75,12 @@ async function main(): Promise<void> {
     debugButton.classList.toggle('on', debug.enabled)
     debugPanel.setEnabled(debug.enabled)
   })
-  bar.append(debugButton)
+  barTop.append(debugButton)
 
   // Pointer input on either panel maps to the same grid cell; the editor decides what it means.
   let refreshSidebar = () => {}
   const editor = new Editor(session, () => refreshSidebar())
+  buildToolbar(barTools, editor)
   refreshSidebar = buildSidebar(document.getElementById('side')!, session, editor)
   const cellUnder = (event: PointerEvent) => {
     const rect = app.canvas.getBoundingClientRect()
@@ -104,7 +112,15 @@ async function main(): Promise<void> {
   app.canvas.addEventListener('pointerdown', (e) => {
     const picked = debug.enabled ? troopUnder(e) : null
     if (picked !== null) return debug.select(picked.panel, picked.id)
-    editor.pointer(cellUnder(e), 'down')
+    const cell = cellUnder(e)
+    if (editor.tool === 'place' && cell !== null) {
+      return openPlaceMenu(e.clientX, e.clientY, {
+        wall: (level) => editor.placeWallAt(cell.x, cell.y, level),
+        building: (type) => editor.placeBuildingAt(cell.x, cell.y, type),
+        unit: (type) => editor.placeUnitAt(cell.x, cell.y, type),
+      })
+    }
+    editor.pointer(cell, 'down')
   })
   app.canvas.addEventListener('pointermove', (e) => editor.pointer(cellUnder(e), 'move'))
   window.addEventListener('pointerup', () => editor.pointer(null, 'up'))
