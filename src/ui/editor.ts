@@ -3,7 +3,7 @@ import type { WallLevel } from '../sim/types'
 import { buildingIndexAt, erase, paintWall, placeBuilding, scatterCells, selectAt, setHp, toggleSpawn, type Selection } from './editorActions'
 import type { Session } from './session'
 
-export type Tool = 'place' | 'erase' | 'spawn' | 'select'
+export type Tool = 'place' | 'wall' | 'erase' | 'spawn' | 'select'
 
 export interface Preview {
   x: number
@@ -27,6 +27,7 @@ const FLASH_SECONDS = 0.45
 // Pointer events arrive as grid cells; the only things touched are the session scenario and its deploy list.
 export class Editor {
   tool: Tool = 'select'
+  wallLevel: WallLevel = 1 // Draw wall tool: dragging paints a run at this level
   troopType = 'balanced' // last unit type: used for balance editing and "Drop at spawns"
   dropCount = 1
   selection: Selection | null = null
@@ -45,7 +46,7 @@ export class Editor {
     if (phase === 'up') return void (this.dragging = false)
     if (cell === null) return
     const key = `${cell.x},${cell.y}`
-    if (phase === 'move' && !(this.dragging && this.tool === 'erase')) return
+    if (phase === 'move' && !(this.dragging && (this.tool === 'wall' || this.tool === 'erase'))) return
     if (key === this.lastPainted && phase === 'move') return
     if (phase === 'down') this.dragging = true
     this.lastPainted = key
@@ -57,11 +58,6 @@ export class Editor {
   }
 
   // Called by the placement context menu (tool 'place' opens it instead of painting directly on click).
-  placeWallAt(x: number, y: number, level: WallLevel): void {
-    if (paintWall(this.session.scenario, x, y, level)) this.edited()
-    else this.flash(x, y)
-  }
-
   placeBuildingAt(x: number, y: number, type: string): void {
     if (placeBuilding(this.session.scenario, type, x, y)) this.edited()
     else this.flash(x, y)
@@ -92,11 +88,12 @@ export class Editor {
     if (this.tool === 'place') return // the context menu in main.ts handles this tool, not a plain click
     const s = this.session.scenario
     let done = false
-    if (this.tool === 'erase') done = erase(s, x, y)
+    if (this.tool === 'wall') done = paintWall(s, x, y, this.wallLevel)
+    else if (this.tool === 'erase') done = erase(s, x, y)
     else if (this.tool === 'spawn') done = toggleSpawn(s, x, y)
     else return void this.select(x, y) // tool === 'select'
     if (done) this.edited()
-    else this.flash(x, y)
+    else if (this.tool !== 'wall') this.flash(x, y) // painting over the same level while dragging is not an error
   }
 
   private dropAt(x: number, y: number, count: number): void {

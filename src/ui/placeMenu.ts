@@ -1,8 +1,6 @@
 import { BUILDING_TYPES, TROOP_TYPES } from '../sim/config'
-import type { WallLevel } from '../sim/types'
 
 export interface PlaceMenuActions {
-  wall(level: WallLevel): void
   building(type: string): void
   unit(type: string): void
 }
@@ -45,15 +43,12 @@ function group(title: string, items: HTMLButtonElement[]): HTMLElement {
 }
 
 // A right-click-style popup anchored at a screen point, asking what to put on the cell that was clicked.
+// Wall is not here: it has its own top-bar tool + level select, for dragging to paint a run in one stroke.
 export function openPlaceMenu(clientX: number, clientY: number, actions: PlaceMenuActions): void {
   closeMenu()
   const menu = document.createElement('div')
   menu.id = 'place-menu'
   menu.append(
-    group(
-      'Wall',
-      ([1, 2, 3, 4, 5] as WallLevel[]).map((level) => item(`Level ${level}`, () => actions.wall(level))),
-    ),
     group(
       'Building',
       Object.values(BUILDING_TYPES).map((b) => item(`${b.name} ${b.w}x${b.h}`, () => actions.building(b.id))),
