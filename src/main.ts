@@ -5,6 +5,7 @@ import { PanelView } from './render/panelView'
 import { L_CORNER } from './scenarios'
 import { Debug } from './ui/debug'
 import { buildDebugPanel } from './ui/debugPanel'
+import { openComparePanel } from './ui/comparePanel'
 import { Editor } from './ui/editor'
 import { openPlaceMenu } from './ui/placeMenu'
 import { buildSidebar } from './ui/sidebar'
@@ -76,6 +77,12 @@ async function main(): Promise<void> {
     debugPanel.setEnabled(debug.enabled)
   })
   barTop.append(debugButton)
+
+  const compareButton = document.createElement('button')
+  compareButton.textContent = 'Compare'
+  compareButton.title = 'Run every scenario and 50 random maps through Classic, the stronger classic and Squad'
+  compareButton.addEventListener('click', () => openComparePanel())
+  barTop.append(compareButton)
 
   // Pointer input on either panel maps to the same grid cell; the editor decides what it means.
   let refreshSidebar = () => {}
