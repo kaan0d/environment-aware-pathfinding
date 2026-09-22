@@ -6,6 +6,17 @@ import type { Session } from './session'
 
 const DEFAULT_TROOPS = JSON.parse(JSON.stringify(TROOP_TYPES)) as typeof TROOP_TYPES
 const DEFAULT_SQUAD = { ...squadSettings }
+// The largest built-in building (hq, 3x3) sizes MAX_ATTACK_POSITIONS at module load; a bigger new type would
+// overflow the scratch buffers everything else already allocated against that number.
+// ponytail: cap new buildings at the existing max footprint instead of recomputing that buffer size at runtime.
+const MAX_BUILDING_SIDE = 3
+
+function slugify(name: string, existing: Record<string, unknown>): string {
+  const base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'type'
+  let id = base
+  for (let n = 2; id in existing; n++) id = `${base}-${n}`
+  return id
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag)
@@ -23,6 +34,7 @@ function section(title: string): HTMLElement {
 interface Slider {
   row: HTMLElement
   set(value: number): void
+  value(): number
 }
 
 function slider(label: string, min: number, max: number, step: number, onInput: (value: number) => void): Slider {
@@ -45,6 +57,7 @@ function slider(label: string, min: number, max: number, step: number, onInput: 
       input.value = String(v)
       value.textContent = String(v)
     },
+    value: () => Number(input.value),
   }
 }
 
@@ -114,6 +127,8 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
   const defaults = el('button', '', 'Restore defaults')
   defaults.addEventListener('click', () => {
     for (const id of Object.keys(DEFAULT_TROOPS)) Object.assign(TROOP_TYPES[id], DEFAULT_TROOPS[id])
+    for (const id of Object.keys(TROOP_TYPES)) if (!(id in DEFAULT_TROOPS)) delete TROOP_TYPES[id]
+    editor.troopType = 'balanced'
     session.reset()
     refresh()
   })
@@ -122,6 +137,43 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     TROOP_TYPES[editor.troopType][key] = value
     session.reset()
   }
+
+  // New unit type: named after the sliders above, so setting the stats first and naming it second reads naturally.
+  const newTroopBox = section('New unit type')
+  const newTroopName = el('input')
+  newTroopName.placeholder = 'Name'
+  const newTroopButton = el('button', '', 'Add unit type')
+  newTroopButton.addEventListener('click', () => {
+    if (!newTroopName.value.trim()) return
+    const id = slugify(newTroopName.value, TROOP_TYPES)
+    TROOP_TYPES[id] = { id, name: newTroopName.value.trim(), speed: speed.value(), dps: dps.value(), hp: hp.value() }
+    newTroopName.value = ''
+    editor.troopType = id
+    refresh()
+  })
+  newTroopBox.append(newTroopName, newTroopButton)
+
+  // New building type: no sliders shared with an existing one (buildings aren't picked for editing like units
+  // are), so its own name/size/hp inputs. Size is capped at the largest built-in footprint (hq, 3x3) - see
+  // MAX_BUILDING_SIDE above.
+  const newBuildingBox = section('New building type')
+  const newBuildingName = el('input')
+  newBuildingName.placeholder = 'Name'
+  const buildingW = slider('Width (cells)', 1, MAX_BUILDING_SIDE, 1, () => {})
+  const buildingH = slider('Height (cells)', 1, MAX_BUILDING_SIDE, 1, () => {})
+  const buildingHp = slider('Hit points', 50, 3000, 50, () => {})
+  buildingW.set(1)
+  buildingH.set(1)
+  buildingHp.set(300)
+  const newBuildingButton = el('button', '', 'Add building type')
+  newBuildingButton.addEventListener('click', () => {
+    if (!newBuildingName.value.trim()) return
+    const id = slugify(newBuildingName.value, BUILDING_TYPES)
+    BUILDING_TYPES[id] = { id, name: newBuildingName.value.trim(), w: buildingW.value(), h: buildingH.value(), hp: buildingHp.value() }
+    newBuildingName.value = ''
+    refresh()
+  })
+  newBuildingBox.append(newBuildingName, buildingW.row, buildingH.row, buildingHp.row, newBuildingButton)
 
   // Algorithm and walls
   const algoBox = section('Algorithm')
@@ -165,13 +217,15 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
   })
   algoBox.append(stack, stackHint, group, radius.row, candidates.row, wallScale.row, restoreAlgo)
 
-  root.append(scenarioBox, toolBox, selectedBox, unitBox, algoBox)
+  root.append(scenarioBox, toolBox, selectedBox, unitBox, newTroopBox, newBuildingBox, algoBox)
 
   function refresh(): void {
     const entry = entries.find((e) => e.id === scenarioSelect.value) ?? entries[0]
     description.textContent = entry.description
     const { errors, warnings } = validateScenario(session.scenario)
     problems.replaceChildren(...[...errors.map((t) => ['error', t]), ...warnings.map((t) => ['warning', t])].map(([kind, text]) => el('li', kind, text)))
+    // Rebuilt every refresh so a newly added unit type (below) shows up here too.
+    troopSelect.replaceChildren(...Object.values(TROOP_TYPES).map((t) => new Option(t.name, t.id)))
     troopSelect.value = editor.troopType
     drop.set(editor.dropCount)
     const counts = new Map<string, number>()

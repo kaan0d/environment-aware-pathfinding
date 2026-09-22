@@ -91,6 +91,7 @@ export class PanelView {
       g.rect(o.preview.x, o.preview.y, o.preview.w, o.preview.h).fill({ color, alpha: 0.35 }).stroke({ width: 0.06, color })
     }
     for (const f of o.flashes) g.rect(f.x, f.y, 1, 1).fill({ color: 0xe0533d, alpha: 0.7 * (1 - f.age / 0.45) })
+    for (const c of o.cells ?? []) g.rect(c.x, c.y, 1, 1).fill({ color: 0x7bd88f, alpha: 0.3 })
   }
 
   // Where a troop is drawn right now, for picking it with the pointer.
