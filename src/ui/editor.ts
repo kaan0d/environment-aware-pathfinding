@@ -49,8 +49,7 @@ const MUTATING: readonly Tool[] = ['wall', 'rect', 'line', 'copy', 'erase', 'spa
 export class Editor {
   tool: Tool = 'select'
   wallLevel: WallLevel = 1 // Draw wall / Rect / Line tools: paints at this level
-  troopType = 'balanced' // last unit type: used for balance editing and "Add at spawn points"
-  dropCount = 1
+  troopType = 'balanced' // last unit type: used for balance editing and "Add unit"
   selection: Selection | null = null
   private hover: { x: number; y: number } | null = null
   private dragging = false
@@ -114,7 +113,7 @@ export class Editor {
   }
 
   deployAtSpawns(): void {
-    for (const spawn of this.session.scenario.spawns) this.dropAt(spawn.x, spawn.y, this.dropCount)
+    for (const spawn of this.session.scenario.spawns) this.dropAt(spawn.x, spawn.y, 1)
   }
 
   // Called by the placement context menu (tool 'place' opens it instead of painting directly on click).
@@ -127,7 +126,7 @@ export class Editor {
 
   placeUnitAt(x: number, y: number, troopType: string): void {
     this.troopType = troopType
-    this.dropAt(x, y, this.dropCount)
+    this.dropAt(x, y, 1)
   }
 
   setSelectedHp(hp: number): boolean {

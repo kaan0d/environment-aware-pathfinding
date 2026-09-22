@@ -176,7 +176,7 @@ export const SCENARIOS: ScenarioEntry[] = [
   {
     id: 'crowd',
     name: '7. Crowd effect',
-    description: 'A level 4 wall (1000 hp) with a single unit: it walks around. Use "Clear units", set "Units per drop" and drop units at the spawn. From 3 units the new algorithm breaks the wall instead.',
+    description: 'A level 4 wall (1000 hp) with a single unit: it walks around. Use "Clear units", then click "Add unit" a few more times. From 3 units the new algorithm breaks the wall instead.',
     scenario: CROWD,
   },
   {

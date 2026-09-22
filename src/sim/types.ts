@@ -34,6 +34,7 @@ export interface Scenario {
   height: number
   wallHpScale?: number // multiplies the hit points of every wall that has no explicit hp
   stackAttackers?: boolean // true (default): any number of troops may attack from the same cell; false: one attacker per attack position
+  classicMaxWalk?: number // past this many walk cells Classic tries a wall first too; unset uses CLASSIC_MAX_WALK (config.ts)
   walls: { x: number; y: number; level: WallLevel; hp?: number }[]
   buildings: { type: string; x: number; y: number; hp?: number }[]
   spawns: { x: number; y: number }[] // allowed deploy points for the editor; the sim does not read them

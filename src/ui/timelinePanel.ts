@@ -1,11 +1,18 @@
 import { DT } from '../sim/config'
 import { World } from '../sim/world'
 import type { Session } from './session'
+import { S } from './strings'
 
 // Scrubs the deterministic run to any moment (Session.scrubTo re-simulates from t=0 to there), jumps to the
 // previous/next wall or building falling, or steps exactly one tick while paused. No recording is kept - the
 // sim is cheap enough to just re-run, and that stays correct after any edit instead of going stale.
 export function buildTimeline(container: HTMLElement, session: Session, onScrub: () => void): { refresh(): void; refreshMax(): void } {
+  // Play/pause here mirrors the top-bar one (same session.playing) - YouTube-style, right next to the scrubber.
+  const playButton = document.createElement('button')
+  playButton.addEventListener('click', () => {
+    session.playing = !session.playing
+    refresh()
+  })
   const stepButton = document.createElement('button')
   stepButton.textContent = 'Step'
   const prevButton = document.createElement('button')
@@ -59,6 +66,7 @@ export function buildTimeline(container: HTMLElement, session: Session, onScrub:
     slider.value = String(session.time)
     time.textContent = `${session.time.toFixed(1)} s`
     stepButton.disabled = session.finished
+    playButton.textContent = session.playing ? S.pause : S.play
   }
 
   // Not cheap: runs two throwaway worlds to completion to size the slider. Called once at start and again
@@ -73,7 +81,7 @@ export function buildTimeline(container: HTMLElement, session: Session, onScrub:
     refresh()
   }
 
-  container.append(stepButton, prevButton, slider, nextButton, time)
+  container.append(playButton, stepButton, prevButton, slider, nextButton, time)
   refreshMax()
   return { refresh, refreshMax }
 }
