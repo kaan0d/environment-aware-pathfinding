@@ -37,9 +37,9 @@ The build uses relative asset paths, so `dist/` works from any sub-path. `.githu
 ### In the demo
 
 - **Scenario menu** with 9 ready-made maps and a blank one. Each has a short description of what it shows.
-- **Editor** (right panel): draw walls of level 1-5, add buildings (1x1, 2x2, 3x3), spawn points, erase, select an object to change its hit points. Drop units by clicking either map, several at once, or at the spawn points; they land on the same cell at the same time in both panels and Reset replays them.
+- **Editor** (right panel): draw walls of level 1-5, add buildings (1x1, 2x2, 3x3), spawn points, erase, select an object to change its hit points (Select is the tool active at start). Drop units with the Deploy tool by clicking either map, several at once, or at the spawn points; they land on the same cell at the same time in both panels and Reset replays them.
 - **Settings:** unit speed / damage / hit points, "Attackers can share a cell" (on by default), group behavior on and off, squad radius, number of candidate plans, wall hit point multiplier. Changing one resets the run.
-- **Debug button:** click a unit to see a heat map of the cost field, its planned route (blue = walking, green = breaking a wall), rings around units that share a plan, the candidate plans with time, walls and slots, walking against breaking, estimate against real time, and planning time.
+- **Debug button:** one press shows everything, no clicking needed. It follows the first active unit by itself (a click on another unit follows that one instead) and shows a heat map of the cost field, the planned route (blue = walking, green = breaking a wall), rings around units that share a plan, a white ring for the squad radius, a hit point bar under every wall (numbers on walls on the route, being hit or damaged), a wall table per level, the squad sizes, the candidate plans with time, walls and slots, walking against breaking, estimate against real time, and planning time.
 
 ![Debug view on the maze: heat map, route through the thin spots, candidate list](docs/screenshots/debug-maze.png)
 

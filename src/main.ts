@@ -123,13 +123,14 @@ async function main(): Promise<void> {
     left.drawOverlay(editor.overlay())
     right.drawOverlay(editor.overlay())
     debug.observe()
+    debug.ensureSelection()
     layers[0].update(session.classic, debug, seconds)
     layers[1].update(session.fresh, debug, seconds)
     sinceDebugText += ticker.deltaMS / 1000
     if (debug.enabled && sinceDebugText > 0.25) {
       sinceDebugText = 0
       const world = debug.worldOf(debug.panel)
-      debugPanel.update(debug, debug.info(), world, layers[debug.panel].legend)
+      debugPanel.update(debug, debug.info(), debug.overview(), world, layers[debug.panel].legend)
     }
     leftHud.update(session.classic)
     rightHud.update(session.fresh)

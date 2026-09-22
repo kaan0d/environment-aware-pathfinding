@@ -26,6 +26,8 @@ export class PanelView {
   readonly heat = new Graphics()
   readonly halos = new Graphics()
   readonly routes = new Graphics()
+  readonly wallInfo = new Graphics() // debug: hit point bar under every wall
+  readonly labels = new Container() // debug: hit point numbers
   readonly effects = new Effects()
   private readonly scene = new Container() // shaken as a whole when a building falls
   private readonly ground = new Graphics()
@@ -49,7 +51,7 @@ export class PanelView {
   private shake = 0
 
   constructor() {
-    this.scene.addChild(this.ground, this.heat, this.wallBase, this.wallDamage, this.buildings, this.ghosts, this.halos, this.particles, this.troops, this.routes, this.overlay)
+    this.scene.addChild(this.ground, this.heat, this.wallBase, this.wallDamage, this.wallInfo, this.buildings, this.ghosts, this.halos, this.particles, this.troops, this.routes, this.labels, this.overlay)
     this.root.addChild(this.scene)
   }
 

@@ -1,4 +1,6 @@
-import type { Graphics } from 'pixi.js'
+import { Text, type Graphics } from 'pixi.js'
+import { squadSettings } from '../sim/config'
+import type { Troop } from '../sim/troop'
 import { FlowField } from '../sim/planner/flowField'
 import { SquadPlanner } from '../sim/planner/squadPlanner'
 import { traversalOf } from '../sim/environment'
@@ -10,6 +12,7 @@ const HALO_COLORS = [0xff6b6b, 0x4dabf7, 0xffd43b, 0x69db7c, 0xda77f2, 0xff922b,
 const WALK = 0x3b82f6
 const BREAK = 0x22c55e
 const HEAT_REFRESH = 0.5 // seconds between recomputing the heat map
+const MAX_LABELS = 40 // wall numbers drawn at once
 
 // Draws the technical layers onto a panel: heat map of the flow field, squad halos and the planned route.
 export class DebugLayer {
@@ -18,6 +21,7 @@ export class DebugLayer {
   private fieldWorld: World | null = null
   private fieldFor = ''
   private computedAt = -1
+  private readonly texts: Text[] = []
 
   constructor(
     private readonly view: PanelView,
@@ -25,13 +29,66 @@ export class DebugLayer {
   ) {}
 
   update(world: World, debug: Debug, seconds: number): void {
-    const { heat, halos, routes } = this.view
-    if (!debug.enabled) return void this.clear([heat, halos, routes])
+    const { heat, halos, routes, wallInfo, labels } = this.view
+    if (!debug.enabled) {
+      labels.visible = false
+      return void this.clear([heat, halos, routes, wallInfo])
+    }
+    labels.visible = true
     this.drawHalos(world, halos)
     const troop = debug.panel === this.panel && debug.troopId !== null ? world.troops[debug.troopId] : undefined
+    this.drawWallInfo(world, troop?.isActive() ? troop : undefined)
     if (troop === undefined || !troop.isActive()) return void this.clear([heat, routes])
+    this.drawRadius(world, troop, halos)
     this.drawHeat(world, troop.type.speed, troop.type.dps, troop.type.id, seconds, heat)
     this.drawRoute(world, troop.id, routes)
+  }
+
+  // A ring of the squad radius around the followed unit, on the panel that has squads.
+  private drawRadius(world: World, troop: Troop, g: Graphics): void {
+    if (!(world.planner instanceof SquadPlanner)) return
+    g.circle(troop.x, troop.y, squadSettings.radius).stroke({ width: 0.08, color: 0xffffff, alpha: 0.6 })
+  }
+
+  // A bar under every wall, and the number for the walls that matter right now: on the followed route, being hit, or damaged.
+  private drawWallInfo(world: World, followed: Troop | undefined): void {
+    const { grid } = world
+    const g = this.view.wallInfo
+    g.clear()
+    const shown = new Set<number>()
+    if (followed?.plan) for (const cell of followed.plan.route.subarray(Math.max(0, followed.routeIdx - 1))) if (traversalOf(grid.kind[cell]) === 'breakable') shown.add(cell)
+    for (const t of world.troops) if (t.attackKind === 'wall' && t.isActive()) shown.add(t.attackId)
+    for (let cell = 0; cell < grid.size; cell++) {
+      if (traversalOf(grid.kind[cell]) !== 'breakable') continue
+      const x = cell % grid.width
+      const y = Math.floor(cell / grid.width)
+      const health = Math.max(0, grid.hp[cell] / grid.maxHp[cell])
+      g.rect(x + 0.1, y + 0.84, 0.8, 0.11).fill({ color: 0x000000, alpha: 0.6 })
+      g.rect(x + 0.12, y + 0.86, 0.76 * health, 0.07).fill(health > 0.5 ? 0x6fd46f : health > 0.25 ? 0xf2c14e : 0xe0533d)
+      if (grid.hp[cell] < grid.maxHp[cell] && shown.size < MAX_LABELS) shown.add(cell)
+    }
+    this.placeLabels(world, [...shown].slice(0, MAX_LABELS))
+  }
+
+  private placeLabels(world: World, cells: number[]): void {
+    const { grid } = world
+    const labels = this.view.labels
+    while (this.texts.length < cells.length) {
+      const text = new Text({ text: '', style: { fontFamily: 'monospace', fontSize: 14, fontWeight: '700', fill: 0xffffff, stroke: { color: 0x000000, width: 3 } } })
+      text.anchor.set(0.5)
+      labels.addChild(text)
+      this.texts.push(text)
+    }
+    const scale = 10 / (14 * Math.max(1, this.view.root.scale.x)) // about 10 screen pixels tall whatever the zoom
+    this.texts.forEach((text, i) => {
+      text.visible = i < cells.length
+      if (i >= cells.length) return
+      const cell = cells[i]
+      const value = String(Math.ceil(grid.hp[cell]))
+      if (text.text !== value) text.text = value
+      text.scale.set(scale)
+      text.position.set((cell % grid.width) + 0.5, Math.floor(cell / grid.width) + 0.45)
+    })
   }
 
   private clear(layers: Graphics[]): void {

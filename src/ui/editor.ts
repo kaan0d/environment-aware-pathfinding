@@ -26,7 +26,7 @@ const FLASH_SECONDS = 0.45
 // The one place that holds the editor state (active tool, options, selection).
 // Pointer events arrive as grid cells; the only things touched are the session scenario and its deploy list.
 export class Editor {
-  tool: Tool = 'deploy'
+  tool: Tool = 'select'
   wallLevel: WallLevel = 1
   buildingType = 'depot'
   troopType = 'balanced'
