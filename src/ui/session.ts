@@ -73,10 +73,11 @@ export class Session {
     return [this.classic, this.fresh].every((w) => w.grid.inBounds(x, y) && w.grid.isWalkable(w.grid.cellAt(x, y)))
   }
 
-  // Drops one troop on each cell on the next step, in both worlds, and records it so a reset replays it.
+  // Drops one troop on each cell in both worlds, timestamped at the start of the run: it appears on the very next
+  // step right now, and a reset (or replay) spawns it at t=0 with the rest, not wherever it was added mid-run.
   deployAt(cells: { x: number; y: number }[], troopType: string): void {
     for (const { x, y } of cells) {
-      const event = { t: (this.stepCount + 1) * DT, troopType, x, y } // lands on the very next step, exactly as a replay will land it
+      const event = { t: 0, troopType, x, y }
       this.scenario.deployments.push(event)
       this.classic.addDeployment(event)
       this.fresh.addDeployment(event)

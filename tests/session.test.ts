@@ -58,14 +58,18 @@ describe('Session', () => {
 })
 
 describe('Session deploys', () => {
-  it('drops troops into both worlds at the same time and replays them after a reset', () => {
+  it('drops troops into both worlds right away, timestamped at the start of the run so a reset always replays them from t=0', () => {
     const session = new Session({ ...L_CORNER, deployments: [] })
-    session.advance(1)
+    session.advance(1) // added mid-run: still recorded at the start, not at the moment it was added
     session.deployAt([{ x: 12, y: 8 }, { x: 12, y: 9 }], 'balanced')
     expect(session.classic.troops.length).toBe(2)
     expect(session.fresh.troops.length).toBe(2)
-    expect(session.classic.troops[0].spawnTime).toBe(session.fresh.troops[0].spawnTime)
+    expect(session.classic.troops[0].spawnTime).toBe(0)
+    expect(session.fresh.troops[0].spawnTime).toBe(0)
     expect(session.scenario.deployments.length).toBe(2)
+    expect(session.scenario.deployments.every((d) => d.t === 0)).toBe(true)
+    // A reset replays deterministically regardless of frame rate, same as every other scenario.
+    session.reset()
     for (let i = 0; !session.finished && i < 100000; i++) session.advance(1 / 40)
     const first = fingerprint(session)
     session.reset()
