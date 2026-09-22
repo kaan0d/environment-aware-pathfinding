@@ -221,3 +221,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #timeline button:disabled { opacity: 0.5; cursor: default; }
 #timeline .timeline-slider { flex: 1; }
 #timeline .timeline-time { min-width: 4.5em; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* Battle log: scrolling event list appended to #side (src/ui/battleLog.ts). */
+#side .battle-log { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; font-family: var(--font-mono, monospace); font-size: 0.74rem; }
+#side .battle-log li { padding: 3px 0; border-bottom: 1px solid var(--line); color: var(--dim); }
+#side .battle-log li:first-child { color: var(--text); }

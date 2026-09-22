@@ -70,7 +70,7 @@ More detail:
 - **Attack slots (switch off):** a wall with 1 free position falls in 22.03 s for 3, 8 and 50 troops alike; one with 3 positions in 9.00 s. With cells shared, the same corridor wall falls in 4.53 s for 8 troops.
 - **Oracle:** on 200 random 15x15 maps every candidate plan is run in the real simulation, in both modes. One attacker per position: the pick is within 5% of the best candidate in 199 of 200 maps (worst 1.052), estimate error 1.2%; on two fresh sets of 200 maps 199 and 199 (worst 1.146 and 1.107). Cells shared: 200 of 200 on all three sets (worst 1.004), estimate error 0.8%.
 - **Speed:** one flow field 0.57 ms (40x28) and 6.0 ms (100x100). A full squad planning round on a busy 40x28 map (10 squads, 50 troops) takes 25 ms, about 2.4 ms per squad.
-- **Rendering:** with 30 units in both panels, 19.5 ms per frame (about 51 fps), 26.1 ms with debug on, in headless Chrome with software WebGL at 1400x800. JavaScript takes under 1 ms of that. A real GPU is not measured.
+- **Rendering:** with 30 units in both panels, 19.5 ms per frame (about 51 fps), 26.1 ms with debug on, in headless Chrome with software WebGL at 1400x800. JavaScript takes under 1 ms of that. On a real GPU (NVIDIA RTX 4070, Chrome/ANGLE D3D11, same 30-unit scene): 2.3 ms mean / 1.4 ms median with debug off, 3.2 ms mean / 2.7 ms median with debug on - about 8-9x the headless software number, as expected once an actual GPU does the drawing.
 
 ## Limits
 

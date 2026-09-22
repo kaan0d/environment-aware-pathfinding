@@ -55,6 +55,46 @@ export function drawGrass(g: Graphics, width: number, height: number): void {
   }
 }
 
+const TREE_LEAF = 0x4f7a3a
+const TREE_TRUNK = 0x6b4a2a
+const WATER = 0x5a9bc9
+const PATH = 0xc9b183
+
+// Trees, a water patch here and there, a hint of a trodden path - decoration only, drawn on the ground layer
+// under everything else. Purely cosmetic: no move cost, no effect on routing (item 11's terrain cost is a
+// separate, undone idea). Deterministic per cell, same hash trick as the grass tufts above, so it never
+// flickers or differs between two runs of the same map. isFree lets the caller skip wall/building cells.
+export function drawGroundDetails(g: Graphics, width: number, height: number, isFree: (x: number, y: number) => boolean): void {
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (!isFree(x, y)) continue
+      const hash = (x * 2654435761 + y * 40503) >>> 0
+      const roll = hash % 97
+      if (roll < 3) drawTree(g, x, y, hash)
+      else if (roll < 5) drawWaterPatch(g, x, y, hash)
+      else if (roll === 5) drawPathSpeckle(g, x, y, hash)
+    }
+  }
+}
+
+function drawTree(g: Graphics, x: number, y: number, hash: number): void {
+  const cx = x + 0.5 + (((hash >> 4) & 3) / 10 - 0.15)
+  const cy = y + 0.5 + (((hash >> 6) & 3) / 10 - 0.15)
+  g.rect(cx - 0.03, cy + 0.05, 0.06, 0.16).fill(TREE_TRUNK)
+  g.circle(cx, cy - 0.05, 0.22).fill(TREE_LEAF)
+}
+
+function drawWaterPatch(g: Graphics, x: number, y: number, hash: number): void {
+  const r = 0.28 + ((hash >> 8) & 3) / 40
+  g.circle(x + 0.5, y + 0.5, r).fill({ color: WATER, alpha: 0.55 })
+}
+
+function drawPathSpeckle(g: Graphics, x: number, y: number, hash: number): void {
+  const ox = ((hash >> 5) & 7) / 10 + 0.1
+  const oy = ((hash >> 9) & 7) / 10 + 0.1
+  g.circle(x + ox, y + oy, 0.08).fill({ color: PATH, alpha: 0.5 })
+}
+
 // A wall post; joins to the east and south neighbors so a line of walls reads as one piece.
 export function drawWall(g: Graphics, x: number, y: number, level: number, east: boolean, south: boolean): void {
   const skin = WALLS[level - 1]

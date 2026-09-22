@@ -5,6 +5,7 @@ import { PanelView } from './render/panelView'
 import { L_CORNER } from './scenarios'
 import { Debug } from './ui/debug'
 import { buildDebugPanel } from './ui/debugPanel'
+import { buildBattleLog } from './ui/battleLog'
 import { openComparePanel } from './ui/comparePanel'
 import { Editor } from './ui/editor'
 import { buildTimeline } from './ui/timelinePanel'
@@ -135,6 +136,15 @@ async function main(): Promise<void> {
   })
   refreshToolbar = buildToolbar(barTools, editor).refresh
   refreshSidebar = buildSidebar(document.getElementById('side')!, session, editor)
+
+  // Battle log: "12.3 s: unit 4 destroyed wall (14,7)" from both panels' event logs, newest first.
+  const battleLogBox = document.createElement('section')
+  battleLogBox.className = 'box'
+  const battleLogTitle = document.createElement('h3')
+  battleLogTitle.textContent = 'Battle log'
+  battleLogBox.append(battleLogTitle)
+  document.getElementById('side')!.append(battleLogBox)
+  const battleLog = buildBattleLog(battleLogBox)
   const cellUnder = (event: PointerEvent) => {
     const rect = app.canvas.getBoundingClientRect()
     const px = event.clientX - rect.left
@@ -213,6 +223,7 @@ async function main(): Promise<void> {
       timeline.refreshMax()
     }
     timeline.refresh()
+    battleLog.update(session.classic, session.fresh)
     const seconds = performance.now() / 1000
     editor.tick(ticker.deltaMS / 1000)
     left.update(session.classic, session.alpha, seconds)
