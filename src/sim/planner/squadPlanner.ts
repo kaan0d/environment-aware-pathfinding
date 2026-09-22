@@ -260,10 +260,11 @@ export class SquadPlanner implements Planner {
   private plansFor(entry: Omit<Evaluated, 'plans'>, members: readonly Troop[]): Map<number, Plan | null> {
     const { grid, search } = this
     const { target, route } = entry.candidate
+    const routeCells = Array.from(route) // settle wants a plain array; same list for every member below
     const plans = new Map<number, Plan | null>()
     for (const member of members) {
       const start = grid.cellOfPoint(member.x, member.y)
-      search.run(start)
+      search.run(start, routeCells) // early-exits once every route cell is settled, instead of scanning the whole grid
       let joinIdx = 0
       let joinDist = search.dist[route[0]]
       for (let i = 1; i < route.length; i++) {
