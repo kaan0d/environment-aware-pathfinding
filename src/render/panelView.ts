@@ -4,7 +4,7 @@ import type { Troop } from '../sim/troop'
 import type { World } from '../sim/world'
 import type { EditorOverlay } from '../ui/editor'
 import { Effects } from './effects'
-import { BUILDING_SKIN, drawBuilding, drawGrass, drawHealthBar, drawTroop, drawWall, drawWallDamage, wallColor } from './style'
+import { BUILDING_SKIN, drawBuilding, drawGrass, drawGroundDetails, drawHealthBar, drawTroop, drawWall, drawWallDamage, wallColor } from './style'
 
 const GHOST_SECONDS = 0.3
 const SHAKE_SECONDS = 0.4
@@ -112,6 +112,7 @@ export class PanelView {
     this.fallenWalls = 0
     this.ground.clear()
     drawGrass(this.ground, world.grid.width, world.grid.height)
+    drawGroundDetails(this.ground, world.grid.width, world.grid.height, (x, y) => world.grid.isWalkable(world.grid.cellAt(x, y)))
   }
 
   // The wall posts are redrawn only when a wall fell; the damage layer covers just the hurt ones.

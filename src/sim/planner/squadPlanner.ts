@@ -262,8 +262,16 @@ export class SquadPlanner implements Planner {
     const { target, route } = entry.candidate
     const routeCells = Array.from(route) // settle wants a plain array; same list for every member below
     const plans = new Map<number, Plan | null>()
+    // Members that share a start cell (common: a group dropped on one spawn point) share one search and one
+    // Plan object - nothing downstream mutates a troop's plan in place, each troop keeps its own routeIdx.
+    const byStart = new Map<number, Plan | null>()
     for (const member of members) {
       const start = grid.cellOfPoint(member.x, member.y)
+      const cached = byStart.get(start)
+      if (cached !== undefined) {
+        plans.set(member.id, cached)
+        continue
+      }
       search.run(start, routeCells) // early-exits once every route cell is settled, instead of scanning the whole grid
       let joinIdx = 0
       let joinDist = search.dist[route[0]]
@@ -275,6 +283,7 @@ export class SquadPlanner implements Planner {
         }
       }
       if (joinDist === Infinity) {
+        byStart.set(start, null)
         plans.set(member.id, null)
         continue
       }
@@ -282,14 +291,16 @@ export class SquadPlanner implements Planner {
       const full = new Int32Array(walkIn.length + (route.length - joinIdx - 1))
       full.set(walkIn)
       full.set(route.subarray(joinIdx + 1), walkIn.length)
-      plans.set(member.id, {
+      const plan: Plan = {
         targetKind: 'building',
         targetId: target,
         route: full,
         breakCells: full.filter((cell) => traversalOf(grid.kind[cell]) === 'breakable'),
         estTotalTime: entry.total,
         stageTimes: entry.stageTimes,
-      })
+      }
+      byStart.set(start, plan)
+      plans.set(member.id, plan)
     }
     return plans
   }

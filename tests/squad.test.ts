@@ -264,3 +264,24 @@ describe('the squad planner as a whole', () => {
     console.log(rows.join('\n'))
   })
 })
+
+describe('plansFor shares one search across members standing on the same cell', () => {
+  it('gives the exact same Plan object to every member that started on the same cell, a fresh one otherwise', () => {
+    const world = new World(crowdScenario(3, 6))
+    const planner = new SquadPlanner(world.grid, true)
+    const squad = world.troops // all 6 on one cell
+    const plans = planner.evaluate(world, squad)[0].plans
+    const first = plans.get(squad[0].id)
+    expect(first).not.toBeNull()
+    for (const troop of squad) expect(plans.get(troop.id)).toBe(first) // same reference, not just equal content
+
+    // Move one troop elsewhere and re-decide: it must not share the others' cached plan.
+    const moved = new World(crowdScenario(3, 6))
+    moved.troops[0].x = 2
+    moved.troops[0].y = 2
+    const movedPlanner = new SquadPlanner(moved.grid, true)
+    const movedPlans = movedPlanner.evaluate(moved, moved.troops)[0].plans
+    expect(movedPlans.get(moved.troops[0].id)).not.toBe(movedPlans.get(moved.troops[1].id))
+    for (let i = 1; i < moved.troops.length; i++) expect(movedPlans.get(moved.troops[i].id)).toBe(movedPlans.get(moved.troops[1].id))
+  })
+})
