@@ -36,12 +36,16 @@ export class DebugLayer {
     }
     labels.visible = true
     this.drawHalos(world, halos)
-    const troop = debug.panel === this.panel && debug.troopId !== null ? world.troops[debug.troopId] : undefined
-    this.drawWallInfo(world, troop?.isActive() ? troop : undefined)
-    if (troop === undefined || !troop.isActive()) return void this.clear([heat, routes])
-    this.drawRadius(world, troop, halos)
-    this.drawHeat(world, troop.type.speed, troop.type.dps, troop.type.id, seconds, heat)
-    this.drawRoute(world, troop.id, routes)
+    const followed = debug.panel === this.panel && debug.troopId !== null ? world.troops[debug.troopId] : undefined
+    this.drawWallInfo(world, followed?.isActive() ? followed : undefined)
+    // Heat map: both worlds are built from the same deployments, so debug.troopId is the same unit in either one.
+    // Shown on both panels (against each panel's own grid), not only the one the selection happens to be on.
+    const heatTroop = debug.troopId === null ? undefined : world.troops[debug.troopId]
+    if (heatTroop?.isActive()) this.drawHeat(world, heatTroop.type.speed, heatTroop.type.dps, heatTroop.type.id, seconds, heat)
+    else this.clear([heat])
+    if (followed === undefined || !followed.isActive()) return void this.clear([routes])
+    this.drawRadius(world, followed, halos)
+    this.drawRoute(world, followed.id, routes)
   }
 
   // A ring of the squad radius around the followed unit, on the panel that has squads.
