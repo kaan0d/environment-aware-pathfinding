@@ -1,18 +1,9 @@
 import { BLANK, SCENARIOS } from '../scenarios'
 import { BUILDING_TYPES, squadSettings, TROOP_TYPES } from '../sim/config'
 import { validateScenario } from '../sim/scenario'
-import type { WallLevel } from '../sim/types'
-import type { Editor, Tool } from './editor'
+import type { Editor } from './editor'
 import type { Session } from './session'
 
-const TOOLS: Array<[Tool, string]> = [
-  ['deploy', 'Drop units'],
-  ['wall', 'Draw wall'],
-  ['building', 'Add building'],
-  ['spawn', 'Spawn point'],
-  ['erase', 'Erase'],
-  ['select', 'Select'],
-]
 const DEFAULT_TROOPS = JSON.parse(JSON.stringify(TROOP_TYPES)) as typeof TROOP_TYPES
 const DEFAULT_SQUAD = { ...squadSettings }
 
@@ -80,21 +71,9 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
   const problems = el('ul', 'problems')
   scenarioBox.append(scenarioSelect, description, problems)
 
-  // Tools
+  // Editor: unit type for "Drop at spawns", the place-menu's default troop, and units-per-drop.
+  // Wall/building/unit placement itself is the Place tool's click menu (src/ui/placeMenu.ts), not a preset here.
   const toolBox = section('Editor')
-  const toolRow = el('div', 'tools')
-  const toolButtons = new Map<Tool, HTMLButtonElement>()
-  for (const [tool, label] of TOOLS) {
-    const button = el('button', '', label)
-    button.addEventListener('click', () => {
-      editor.tool = tool
-      refresh()
-    })
-    toolButtons.set(tool, button)
-    toolRow.append(button)
-  }
-  const levelSelect = select([1, 2, 3, 4, 5].map((l) => [String(l), `Wall level ${l}`]), (v) => (editor.wallLevel = Number(v) as WallLevel))
-  const buildingSelect = select(Object.values(BUILDING_TYPES).map((b) => [b.id, `${b.name} ${b.w}x${b.h}`]), (v) => (editor.buildingType = v))
   const troopSelect = select(Object.values(TROOP_TYPES).map((t) => [t.id, t.name]), (v) => {
     editor.troopType = v
     refresh()
@@ -109,7 +88,7 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     refresh()
   })
   dropButtons.append(atSpawns, clear)
-  toolBox.append(toolRow, levelSelect, buildingSelect, troopSelect, drop.row, dropButtons)
+  toolBox.append(troopSelect, drop.row, dropButtons)
 
   // Selected object
   const selectedBox = section('Selected')
@@ -187,7 +166,6 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     description.textContent = entry.description
     const { errors, warnings } = validateScenario(session.scenario)
     problems.replaceChildren(...[...errors.map((t) => ['error', t]), ...warnings.map((t) => ['warning', t])].map(([kind, text]) => el('li', kind, text)))
-    for (const [tool, button] of toolButtons) button.classList.toggle('active', tool === editor.tool)
     troopSelect.value = editor.troopType
     drop.set(editor.dropCount)
     const troop = TROOP_TYPES[editor.troopType]

@@ -40,7 +40,7 @@ export interface Evaluated {
   total: number // rollout estimate, seconds from now until the target falls
   stageTimes: Float64Array
   stageSlots: Int32Array // free attack positions counted at each wall and finally the building
-  plans: Map<number, Plan | null> // one plan per member, null when a member cannot reach the goal this way
+  readonly plans: Map<number, Plan | null> // one plan per member, null when a member cannot reach the goal this way; computed on first read
 }
 
 // Plans for groups of nearby troops: candidates come from flow fields, a rollout scores each, the fastest wins.
@@ -106,15 +106,22 @@ export class SquadPlanner implements Planner {
     return this.squadByTroop.get(troopId)
   }
 
-  // Scores every candidate for the given troops (the leader is the first) and returns them best first, with a plan per member.
+  // Scores every candidate for the given troops (the leader is the first) and returns them best first. Each entry's
+  // plans are a full flow field, so they are computed lazily on first read: decide() only ever reads the winner's,
+  // the debug view never reads any, only the oracle test wants every candidate's.
   evaluate(world: World, members: readonly Troop[]): Evaluated[] {
     const strength = this.strengthOf(members, world.stackAttackers)
     const scored = this.candidates(members[0], strength).map((candidate) => {
       const { total, stageTimes, stageSlots } = this.rollout.run(world, members, candidate.route, candidate.target)
-      return { candidate, total, stageTimes, stageSlots, plans: new Map<number, Plan | null>() }
+      let plans: Map<number, Plan | null> | undefined
+      const entry = { candidate, total, stageTimes, stageSlots }
+      return Object.defineProperty(entry, 'plans', {
+        enumerable: true,
+        get: () => (plans ??= this.plansFor(entry, members, strength)),
+      }) as Evaluated
     })
     scored.sort((a, b) => a.total - b.total)
-    for (const entry of scored) entry.plans = this.plansFor(entry, members, strength)
+    void scored[0]?.plans // eager for the winner: caller may read it after the world (and these troops) moved on
     return scored
   }
 
@@ -165,7 +172,7 @@ export class SquadPlanner implements Planner {
     for (const building of grid.buildings) {
       buildingDps[building.id] = damageWith(grid.attackPositions('building', building.id, ring))
     }
-    const speed = members.reduce((sum, t) => sum + t.type.speed, 0) / members.length
+    const speed = Math.min(...members.map((t) => t.type.speed))
     return { speed, dps: sorted[0], wallDps, buildingDps }
   }
 

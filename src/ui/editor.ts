@@ -1,9 +1,9 @@
 import { BUILDING_TYPES } from '../sim/config'
 import type { WallLevel } from '../sim/types'
-import { buildingIndexAt, erase, fits, paintWall, placeBuilding, scatterCells, selectAt, setHp, toggleSpawn, type Selection } from './editorActions'
+import { buildingIndexAt, erase, paintWall, placeBuilding, scatterCells, selectAt, setHp, toggleSpawn, type Selection } from './editorActions'
 import type { Session } from './session'
 
-export type Tool = 'wall' | 'erase' | 'building' | 'spawn' | 'deploy' | 'select'
+export type Tool = 'place' | 'erase' | 'spawn' | 'select'
 
 export interface Preview {
   x: number
@@ -27,9 +27,7 @@ const FLASH_SECONDS = 0.45
 // Pointer events arrive as grid cells; the only things touched are the session scenario and its deploy list.
 export class Editor {
   tool: Tool = 'select'
-  wallLevel: WallLevel = 1
-  buildingType = 'depot'
-  troopType = 'balanced'
+  troopType = 'balanced' // last unit type: used for balance editing and "Drop at spawns"
   dropCount = 1
   selection: Selection | null = null
   private hover: { x: number; y: number } | null = null
@@ -47,7 +45,7 @@ export class Editor {
     if (phase === 'up') return void (this.dragging = false)
     if (cell === null) return
     const key = `${cell.x},${cell.y}`
-    if (phase === 'move' && !(this.dragging && (this.tool === 'wall' || this.tool === 'erase'))) return
+    if (phase === 'move' && !(this.dragging && this.tool === 'erase')) return
     if (key === this.lastPainted && phase === 'move') return
     if (phase === 'down') this.dragging = true
     this.lastPainted = key
@@ -56,6 +54,22 @@ export class Editor {
 
   deployAtSpawns(): void {
     for (const spawn of this.session.scenario.spawns) this.dropAt(spawn.x, spawn.y, this.dropCount)
+  }
+
+  // Called by the placement context menu (tool 'place' opens it instead of painting directly on click).
+  placeWallAt(x: number, y: number, level: WallLevel): void {
+    if (paintWall(this.session.scenario, x, y, level)) this.edited()
+    else this.flash(x, y)
+  }
+
+  placeBuildingAt(x: number, y: number, type: string): void {
+    if (placeBuilding(this.session.scenario, type, x, y)) this.edited()
+    else this.flash(x, y)
+  }
+
+  placeUnitAt(x: number, y: number, troopType: string): void {
+    this.troopType = troopType
+    this.dropAt(x, y, this.dropCount)
   }
 
   setSelectedHp(hp: number): boolean {
@@ -75,16 +89,14 @@ export class Editor {
   }
 
   private apply(x: number, y: number): void {
+    if (this.tool === 'place') return // the context menu in main.ts handles this tool, not a plain click
     const s = this.session.scenario
     let done = false
-    if (this.tool === 'wall') done = paintWall(s, x, y, this.wallLevel)
-    else if (this.tool === 'erase') done = erase(s, x, y)
-    else if (this.tool === 'building') done = placeBuilding(s, this.buildingType, x, y)
+    if (this.tool === 'erase') done = erase(s, x, y)
     else if (this.tool === 'spawn') done = toggleSpawn(s, x, y)
-    else if (this.tool === 'deploy') return void this.dropAt(x, y, this.dropCount)
-    else return void this.select(x, y)
+    else return void this.select(x, y) // tool === 'select'
     if (done) this.edited()
-    else if (this.tool !== 'wall') this.flash(x, y) // painting over the same level is not an error
+    else this.flash(x, y)
   }
 
   private dropAt(x: number, y: number, count: number): void {
@@ -113,11 +125,6 @@ export class Editor {
     if (this.hover === null) return null
     const { x, y } = this.hover
     const s = this.session.scenario
-    if (this.tool === 'building') {
-      const size = BUILDING_TYPES[this.buildingType]
-      return { x, y, w: size.w, h: size.h, valid: fits(s, x, y, size.w, size.h) }
-    }
-    if (this.tool === 'deploy') return { x, y, w: 1, h: 1, valid: this.session.canDeploy(x, y) }
     if (this.tool === 'erase') return { x, y, w: 1, h: 1, valid: s.walls.some((w) => w.x === x && w.y === y) || buildingIndexAt(s, x, y) >= 0 }
     return { x, y, w: 1, h: 1, valid: true }
   }

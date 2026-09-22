@@ -14,13 +14,13 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 
 #bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
+#bar .bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 #bar .title { font-weight: 700; margin-right: 8px; }
 #bar button, #bar select {
   font: inherit;
@@ -124,3 +124,29 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #side .debug .legend .labels { display: flex; justify-content: space-between; color: var(--dim); font-size: 0.75rem; }
 #side .debug .legend p { margin: 4px 0 0; color: var(--dim); font-size: 0.75rem; }
 #bar button.on { background: var(--accent); color: #1b2a1f; border-color: var(--accent); font-weight: 600; }
+
+/* Place-tool context menu: a right-click-style popup asking what to put on the clicked cell. */
+#place-menu {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+#place-menu .place-menu-group { display: flex; flex-direction: column; gap: 2px; min-width: 120px; }
+#place-menu h4 { margin: 0 0 4px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
+#place-menu button {
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+#place-menu button:hover { background: #3a5a46; }
