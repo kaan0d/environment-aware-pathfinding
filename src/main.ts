@@ -115,7 +115,6 @@ async function main(): Promise<void> {
     const cell = cellUnder(e)
     if (editor.tool === 'place' && cell !== null) {
       return openPlaceMenu(e.clientX, e.clientY, {
-        wall: (level) => editor.placeWallAt(cell.x, cell.y, level),
         building: (type) => editor.placeBuildingAt(cell.x, cell.y, type),
         unit: (type) => editor.placeUnitAt(cell.x, cell.y, type),
       })
