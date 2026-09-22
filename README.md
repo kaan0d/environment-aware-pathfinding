@@ -96,3 +96,7 @@ bench/          timing runs (npm run bench)
 ```
 
 The simulation is deterministic: the same scenario and deploy events give the same result, whatever the frame rate. A test runs the same session at different frame rates and after a reset and compares every event.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
