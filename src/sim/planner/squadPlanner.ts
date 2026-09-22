@@ -1,3 +1,4 @@
+import { RouteSearch } from '../ai/routeSearch'
 import { MAX_ATTACK_POSITIONS, HYSTERESIS, SQUAD_UPDATE_HZ, squadSettings } from '../config'
 import { traversalOf } from '../environment'
 import type { Grid } from '../grid'
@@ -50,6 +51,7 @@ export class SquadPlanner implements Planner {
   private readonly solo: TimeCostPlanner
   private readonly field: FlowField
   private readonly rollout: Rollout
+  private readonly search: RouteSearch
   private readonly wallDps: Float64Array
   private readonly banned: Uint8Array
   private readonly ring = new Int32Array(MAX_ATTACK_POSITIONS)
@@ -68,6 +70,7 @@ export class SquadPlanner implements Planner {
     this.solo = new TimeCostPlanner(grid)
     this.field = new FlowField(grid)
     this.rollout = new Rollout(grid)
+    this.search = new RouteSearch(grid)
     this.wallDps = new Float64Array(grid.size)
     this.banned = new Uint8Array(grid.size)
   }
@@ -117,7 +120,7 @@ export class SquadPlanner implements Planner {
       const entry = { candidate, total, stageTimes, stageSlots }
       return Object.defineProperty(entry, 'plans', {
         enumerable: true,
-        get: () => (plans ??= this.plansFor(entry, members, strength)),
+        get: () => (plans ??= this.plansFor(entry, members)),
       }) as Evaluated
     })
     scored.sort((a, b) => a.total - b.total)
@@ -251,25 +254,38 @@ export class SquadPlanner implements Planner {
     })
   }
 
-  // Each member follows a field that may only break the candidate's walls, so the whole squad hits the same ones.
-  private plansFor(entry: Omit<Evaluated, 'plans'>, members: readonly Troop[], strength: Strength): Map<number, Plan | null> {
-    const { grid, field } = this
-    const { target, walls, route } = entry.candidate
-    // Same goal cell as the leader's route, so the rollout's approach cell is where every member really ends up.
-    this.runField({ onlyBuilding: target, noBreaks: true, allowedBreaks: walls, bannedCells: [] }, strength, members.map((m) => grid.cellOfPoint(m.x, m.y)), route[route.length - 1])
+  // Every member walks (today's walls only, none of them broken yet) to the nearest cell of the leader's own
+  // route, then follows that route exactly from there - same walls, same building approach for everyone, so the
+  // squad acts as one instead of a member finding its own cheaper way that the rollout never priced.
+  private plansFor(entry: Omit<Evaluated, 'plans'>, members: readonly Troop[]): Map<number, Plan | null> {
+    const { grid, search } = this
+    const { target, route } = entry.candidate
     const plans = new Map<number, Plan | null>()
     for (const member of members) {
       const start = grid.cellOfPoint(member.x, member.y)
-      if (field.value[start] === Infinity) {
+      search.run(start)
+      let joinIdx = 0
+      let joinDist = search.dist[route[0]]
+      for (let i = 1; i < route.length; i++) {
+        const d = search.dist[route[i]]
+        if (d < joinDist) {
+          joinDist = d
+          joinIdx = i
+        }
+      }
+      if (joinDist === Infinity) {
         plans.set(member.id, null)
         continue
       }
-      const route = field.routeFrom(start)
+      const walkIn = search.routeTo(route[joinIdx])
+      const full = new Int32Array(walkIn.length + (route.length - joinIdx - 1))
+      full.set(walkIn)
+      full.set(route.subarray(joinIdx + 1), walkIn.length)
       plans.set(member.id, {
         targetKind: 'building',
-        targetId: field.target[route[route.length - 1]],
-        route,
-        breakCells: route.filter((cell) => traversalOf(grid.kind[cell]) === 'breakable'),
+        targetId: target,
+        route: full,
+        breakCells: full.filter((cell) => traversalOf(grid.kind[cell]) === 'breakable'),
         estTotalTime: entry.total,
         stageTimes: entry.stageTimes,
       })
