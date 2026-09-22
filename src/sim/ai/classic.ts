@@ -9,11 +9,16 @@ import { RouteSearch } from './routeSearch'
 const NO_CELLS = new Int32Array(0)
 
 // Baseline AI: nearest building by straight line, walls are never crossed, walls are hit only when no path exists.
+// maxWalk (default off, i.e. Infinity) is the one exception: real games often give up on a long way around and
+// break a wall instead, so above that many cells this planner tries a wall first, same as planBreakthrough.
 export class ClassicPlanner implements Planner {
   private readonly search: RouteSearch
   private readonly slots = new Int32Array(MAX_ATTACK_POSITIONS)
 
-  constructor(private readonly grid: Grid) {
+  constructor(
+    private readonly grid: Grid,
+    private readonly maxWalk = Infinity,
+  ) {
     this.search = new RouteSearch(grid)
   }
 
@@ -22,9 +27,12 @@ export class ClassicPlanner implements Planner {
     this.search.run(this.grid.cellOfPoint(troop.x, troop.y))
     const nearest = this.nearestBuilding(world, troop, false)
     if (nearest === null) return null
+    const slot = this.bestSlot(world, troop.id, 'building', nearest.id)
+    const walkOk = slot >= 0 && this.search.dist[slot] <= this.maxWalk
     return (
-      this.planTarget(world, troop, 'building', nearest.id) ??
+      (walkOk ? this.planTarget(world, troop, 'building', nearest.id) : null) ??
       this.planBreakthrough(world, troop, nearest) ??
+      this.planTarget(world, troop, 'building', nearest.id) ?? // too far, but no wall worth breaking either: walk anyway
       this.planNearestReachable(world, troop)
     )
   }

@@ -34,6 +34,13 @@ interface Strength {
   dps: number
   wallDps: Float64Array
   buildingDps: Float64Array
+  signature: string // stacking + sorted (speed, dps) pairs - two squads with this equal bring the same fight
+}
+
+interface FieldSnapshot {
+  value: Float64Array
+  next: Int32Array
+  target: Int32Array
 }
 
 export interface Evaluated {
@@ -52,7 +59,6 @@ export class SquadPlanner implements Planner {
   private readonly field: FlowField
   private readonly rollout: Rollout
   private readonly search: RouteSearch
-  private readonly wallDps: Float64Array
   private readonly banned: Uint8Array
   private readonly ring = new Int32Array(MAX_ATTACK_POSITIONS)
   private squadByTroop = new Map<number, Troop[]>()
@@ -62,6 +68,14 @@ export class SquadPlanner implements Planner {
   private clusteredVersion = -1
   private decisions = new Map<number, Map<number, Plan | null>>() // keyed by squad leader id
   private decisionsVersion = -1
+  // Two more caches, both cleared whenever the map changes (world.version): strengthOf's per-cell damage
+  // weights depend only on the squad's composition, and a candidate's field only on (spec, strength, start
+  // cell) - so a squad that recomputes because some unrelated event bumped the version, but is itself
+  // unchanged, hits both and skips the O(grid size) work entirely.
+  private strengthCache = new Map<string, Strength>()
+  private strengthCacheVersion = -1
+  private fieldCache = new Map<string, FieldSnapshot>()
+  private fieldCacheVersion = -1
 
   constructor(
     private readonly grid: Grid,
@@ -71,7 +85,6 @@ export class SquadPlanner implements Planner {
     this.field = new FlowField(grid)
     this.rollout = new Rollout(grid)
     this.search = new RouteSearch(grid)
-    this.wallDps = new Float64Array(grid.size)
     this.banned = new Uint8Array(grid.size)
   }
 
@@ -113,8 +126,8 @@ export class SquadPlanner implements Planner {
   // plans are a full flow field, so they are computed lazily on first read: decide() only ever reads the winner's,
   // the debug view never reads any, only the oracle test wants every candidate's.
   evaluate(world: World, members: readonly Troop[]): Evaluated[] {
-    const strength = this.strengthOf(members, world.stackAttackers)
-    const scored = this.candidates(members[0], strength).map((candidate) => {
+    const strength = this.strengthOf(members, world.stackAttackers, world.version)
+    const scored = this.candidates(members[0], strength, world.version).map((candidate) => {
       const { total, stageTimes, stageSlots } = this.rollout.run(world, members, candidate.route, candidate.target)
       let plans: Map<number, Plan | null> | undefined
       const entry = { candidate, total, stageTimes, stageSlots }
@@ -161,13 +174,22 @@ export class SquadPlanner implements Planner {
   }
 
   // Damage a squad brings to each wall and building: its strongest troops, as many as there are attack positions.
-  private strengthOf(members: readonly Troop[], stacking: boolean): Strength {
-    const { grid, wallDps, ring } = this
+  // Cached by composition: two squads made of the same troop types (in any order) get the same object back.
+  private strengthOf(members: readonly Troop[], stacking: boolean, version: number): Strength {
+    if (version !== this.strengthCacheVersion) {
+      this.strengthCache.clear()
+      this.strengthCacheVersion = version
+    }
+    const signature = `${stacking}|${members.map((t) => `${t.type.speed}:${t.type.dps}`).sort().join(',')}`
+    const cached = this.strengthCache.get(signature)
+    if (cached !== undefined) return cached
+
+    const { grid, ring } = this
     const sorted = members.map((t) => t.type.dps).sort((a, b) => b - a)
     const prefix = [0]
     for (const dps of sorted) prefix.push(prefix[prefix.length - 1] + dps)
     const damageWith = (slots: number) => prefix[stacking ? sorted.length : Math.min(sorted.length, Math.max(1, slots))]
-    wallDps.fill(0)
+    const wallDps = new Float64Array(grid.size)
     for (let cell = 0; cell < grid.size; cell++) {
       if (traversalOf(grid.kind[cell]) === 'breakable') wallDps[cell] = damageWith(this.sideSlots(cell))
     }
@@ -176,7 +198,9 @@ export class SquadPlanner implements Planner {
       buildingDps[building.id] = damageWith(grid.attackPositions('building', building.id, ring))
     }
     const speed = Math.min(...members.map((t) => t.type.speed))
-    return { speed, dps: sorted[0], wallDps, buildingDps }
+    const strength: Strength = { speed, dps: sorted[0], wallDps, buildingDps, signature }
+    this.strengthCache.set(signature, strength)
+    return strength
   }
 
   // Free cells on the best side of the cell (west, east, north or south line of three): how many attackers a squad
@@ -201,14 +225,14 @@ export class SquadPlanner implements Planner {
   }
 
   // Up to MAX_CANDIDATES distinct routes from the leader: the best free route, the full detour, other buildings, banned walls.
-  private candidates(leader: Troop, strength: Strength): Candidate[] {
+  private candidates(leader: Troop, strength: Strength, version: number): Candidate[] {
     const { grid } = this
     const start = grid.cellOfPoint(leader.x, leader.y)
     const found: Candidate[] = []
     const seen = new Set<string>()
     const add = (spec: Spec) => {
       if (found.length >= squadSettings.maxCandidates) return
-      this.runField(spec, strength, [start])
+      this.runField(spec, strength, [start], version)
       if (this.field.value[start] === Infinity) return
       const route = this.field.routeFrom(start)
       const target = this.field.target[route[route.length - 1]]
@@ -236,8 +260,23 @@ export class SquadPlanner implements Planner {
     return dx * dx + dy * dy
   }
 
-  // finalCell, when given, is the only attack position the field may end at.
-  private runField(spec: Spec, strength: Strength, settle: readonly number[], finalCell = -1): void {
+  // finalCell, when given, is the only attack position the field may end at. Cached when it is cheap to key
+  // safely: a field seeded with `settle` stops as soon as those cells are final, so elsewhere it may hold a
+  // stale, not-yet-final value - only the single-start candidate search (finalCell < 0, one settle cell) is
+  // reused, keyed on that exact start, so a cache hit is always a field that finished at the cell being read.
+  private runField(spec: Spec, strength: Strength, settle: readonly number[], version: number, finalCell = -1): void {
+    if (version !== this.fieldCacheVersion) {
+      this.fieldCache.clear()
+      this.fieldCacheVersion = version
+    }
+    const key = finalCell < 0 && settle.length === 1 ? this.fieldKey(spec, strength.signature, settle[0]) : null
+    const cached = key === null ? undefined : this.fieldCache.get(key)
+    if (cached !== undefined) {
+      this.field.value.set(cached.value)
+      this.field.next.set(cached.next)
+      this.field.target.set(cached.target)
+      return
+    }
     const { grid, banned } = this
     banned.fill(0)
     if (spec.noBreaks) {
@@ -252,6 +291,13 @@ export class SquadPlanner implements Planner {
       onlyBuilding: spec.onlyBuilding,
       settle,
     })
+    if (key !== null) this.fieldCache.set(key, { value: this.field.value.slice(), next: this.field.next.slice(), target: this.field.target.slice() })
+  }
+
+  private fieldKey(spec: Spec, strengthSignature: string, start: number): string {
+    const breaks = [...spec.allowedBreaks].sort((a, b) => a - b).join(',')
+    const banned = [...spec.bannedCells].sort((a, b) => a - b).join(',')
+    return `${start}|${spec.onlyBuilding}|${spec.noBreaks}|${breaks}|${banned}|${strengthSignature}`
   }
 
   // Every member walks (today's walls only, none of them broken yet) to the nearest cell of the leader's own

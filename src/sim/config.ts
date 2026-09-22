@@ -16,6 +16,8 @@ export const SQUAD_UPDATE_HZ = 5 // how often squads are re-formed
 
 export const WALL_HP =[100, 250, 500, 1000, 2000] // index is wall level - 1
 
+export const CLASSIC_MAX_WALK = 40 // default scenario.classicMaxWalk: past this many cells, Classic tries a wall first too
+
 export const TROOP_TYPES: Record<string, TroopType> = {
   fast: { id: 'fast', name: 'Fast-Weak', speed: 4, dps: 20, hp: 60 },
   balanced: { id: 'balanced', name: 'Balanced', speed: 2.5, dps: 50, hp: 200 },

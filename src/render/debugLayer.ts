@@ -23,10 +23,7 @@ export class DebugLayer {
   private computedAt = -1
   private readonly texts: Text[] = []
 
-  constructor(
-    private readonly view: PanelView,
-    private readonly panel: 0 | 1,
-  ) {}
+  constructor(private readonly view: PanelView) {}
 
   update(world: World, debug: Debug, seconds: number): void {
     const { heat, halos, routes, wallInfo, labels } = this.view
@@ -36,7 +33,9 @@ export class DebugLayer {
     }
     labels.visible = true
     this.drawHalos(world, halos)
-    const followed = debug.panel === this.panel && debug.troopId !== null ? world.troops[debug.troopId] : undefined
+    // Same troop id in both worlds (same deployments) - followed unit's route shows on both panels, not just
+    // the one debug.panel points at.
+    const followed = debug.troopId === null ? undefined : world.troops[debug.troopId]
     this.drawWallInfo(world, followed?.isActive() ? followed : undefined)
     // Heat map: both worlds are built from the same deployments, so debug.troopId is the same unit in either one.
     // Shown on both panels (against each panel's own grid), not only the one the selection happens to be on.

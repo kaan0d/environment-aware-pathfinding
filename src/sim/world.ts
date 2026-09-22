@@ -1,6 +1,6 @@
 import { ClassicPlanner } from './ai/classic'
 import { StrongClassicPlanner } from './ai/strongClassic'
-import { BUILDING_TYPES, DT, TROOP_TYPES, WALL_HP } from './config'
+import { BUILDING_TYPES, CLASSIC_MAX_WALK, DT, TROOP_TYPES, WALL_HP } from './config'
 import { moveCostOf, traversalOf } from './environment'
 import { Grid } from './grid'
 import { SquadPlanner } from './planner/squadPlanner'
@@ -36,7 +36,7 @@ export class World {
     this.slotHolder = new Int32Array(this.grid.size).fill(-1)
     this.slotFinder = new SlotFinder(this.grid)
     this.rng = mulberry32(seed)
-    this.planner = new ClassicPlanner(this.grid)
+    this.planner = new ClassicPlanner(this.grid, scenario.classicMaxWalk ?? CLASSIC_MAX_WALK)
     this.addDeployments(scenario.deployments)
   }
 

@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   // Debug view: a toggle in the bar, selection by clicking a unit, layers per panel and a section in the sidebar.
   const debug = new Debug(session)
   const debugPanel = buildDebugPanel(document.getElementById('side')!)
-  const layers = [new DebugLayer(left, 0), new DebugLayer(right, 1)]
+  const layers = [new DebugLayer(left), new DebugLayer(right)]
   const debugButton = document.createElement('button')
   debugButton.textContent = S.debug
   debugButton.addEventListener('click', () => {
