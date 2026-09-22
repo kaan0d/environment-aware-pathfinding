@@ -71,8 +71,8 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
   const problems = el('ul', 'problems')
   scenarioBox.append(scenarioSelect, description, problems)
 
-  // Editor: unit type for "Add unit", the place-menu's default troop, and units-per-drop.
-  // Wall/building/unit placement itself is the Place tool's click menu (src/ui/placeMenu.ts), not a preset here.
+  // Editor: unit type for "Add at spawn points", the place-menu's default troop, and units-per-drop.
+  // For a chosen cell instead of every spawn point, use the Place tool's click menu (src/ui/placeMenu.ts).
   const toolBox = section('Editor')
   const troopLabel = el('label', 'field')
   troopLabel.append(el('span', '', 'Unit type to add'))
@@ -83,7 +83,7 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
   troopLabel.append(troopSelect)
   const drop = slider('Units per drop', 1, 30, 1, (v) => (editor.dropCount = v))
   const dropButtons = el('div', 'tools')
-  const atSpawns = el('button', '', 'Add unit')
+  const atSpawns = el('button', '', 'Add at spawn points')
   atSpawns.addEventListener('click', () => editor.deployAtSpawns())
   const clear = el('button', '', 'Clear units')
   clear.addEventListener('click', () => {
@@ -91,9 +91,10 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     refresh()
   })
   dropButtons.append(atSpawns, clear)
+  const dropHint = el('p', 'description', 'Drops at every spawn point on the map. For one chosen cell, use the Place tool and pick Unit.')
   const spawnListLabel = el('p', 'description', 'Will spawn:')
   const spawnList = el('ul', 'spawn-list')
-  toolBox.append(troopLabel, drop.row, dropButtons, spawnListLabel, spawnList)
+  toolBox.append(troopLabel, drop.row, dropButtons, dropHint, spawnListLabel, spawnList)
 
   // Selected object
   const selectedBox = section('Selected')
