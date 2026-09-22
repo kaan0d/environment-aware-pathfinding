@@ -28,7 +28,7 @@ const FLASH_SECONDS = 0.45
 export class Editor {
   tool: Tool = 'select'
   wallLevel: WallLevel = 1 // Draw wall tool: dragging paints a run at this level
-  troopType = 'balanced' // last unit type: used for balance editing and "Drop at spawns"
+  troopType = 'balanced' // last unit type: used for balance editing and "Add at spawn points"
   dropCount = 1
   selection: Selection | null = null
   private hover: { x: number; y: number } | null = null
