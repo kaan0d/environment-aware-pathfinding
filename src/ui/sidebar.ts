@@ -71,16 +71,19 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
   const problems = el('ul', 'problems')
   scenarioBox.append(scenarioSelect, description, problems)
 
-  // Editor: unit type for "Drop at spawns", the place-menu's default troop, and units-per-drop.
+  // Editor: unit type for "Add unit", the place-menu's default troop, and units-per-drop.
   // Wall/building/unit placement itself is the Place tool's click menu (src/ui/placeMenu.ts), not a preset here.
   const toolBox = section('Editor')
+  const troopLabel = el('label', 'field')
+  troopLabel.append(el('span', '', 'Unit type to add'))
   const troopSelect = select(Object.values(TROOP_TYPES).map((t) => [t.id, t.name]), (v) => {
     editor.troopType = v
     refresh()
   })
+  troopLabel.append(troopSelect)
   const drop = slider('Units per drop', 1, 30, 1, (v) => (editor.dropCount = v))
   const dropButtons = el('div', 'tools')
-  const atSpawns = el('button', '', 'Drop at spawns')
+  const atSpawns = el('button', '', 'Add unit')
   atSpawns.addEventListener('click', () => editor.deployAtSpawns())
   const clear = el('button', '', 'Clear units')
   clear.addEventListener('click', () => {
@@ -88,7 +91,9 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     refresh()
   })
   dropButtons.append(atSpawns, clear)
-  toolBox.append(troopSelect, drop.row, dropButtons)
+  const spawnListLabel = el('p', 'description', 'Will spawn:')
+  const spawnList = el('ul', 'spawn-list')
+  toolBox.append(troopLabel, drop.row, dropButtons, spawnListLabel, spawnList)
 
   // Selected object
   const selectedBox = section('Selected')
@@ -168,6 +173,13 @@ export function buildSidebar(root: HTMLElement, session: Session, editor: Editor
     problems.replaceChildren(...[...errors.map((t) => ['error', t]), ...warnings.map((t) => ['warning', t])].map(([kind, text]) => el('li', kind, text)))
     troopSelect.value = editor.troopType
     drop.set(editor.dropCount)
+    const counts = new Map<string, number>()
+    for (const d of session.scenario.deployments) counts.set(d.troopType, (counts.get(d.troopType) ?? 0) + 1)
+    spawnList.replaceChildren(
+      ...(counts.size === 0
+        ? [el('li', '', 'Nothing queued yet.')]
+        : [...counts].map(([type, count]) => el('li', '', `${count}× ${TROOP_TYPES[type]?.name ?? type}`))),
+    )
     const troop = TROOP_TYPES[editor.troopType]
     speed.set(troop.speed)
     dps.set(troop.dps)

@@ -70,6 +70,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 #side .slider { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-bottom: 6px; color: var(--dim); }
 #side .slider input { grid-column: 1 / -1; width: 100%; }
 #side .check { display: block; margin-bottom: 6px; }
+#side .field { display: block; margin-bottom: 6px; }
+#side .field span { display: block; margin-bottom: 2px; color: var(--dim); }
+#side .spawn-list { margin: 2px 0 0; padding-left: 18px; color: var(--dim); }
 
 @media (max-width: 820px) {
   #body { flex-direction: column; }
