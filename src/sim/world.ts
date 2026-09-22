@@ -1,4 +1,5 @@
 import { ClassicPlanner } from './ai/classic'
+import { StrongClassicPlanner } from './ai/strongClassic'
 import { BUILDING_TYPES, DT, TROOP_TYPES, WALL_HP } from './config'
 import { moveCostOf, traversalOf } from './environment'
 import { Grid } from './grid'
@@ -63,8 +64,11 @@ export class World {
 
   // Swaps the planner; call before the first step so the whole run uses one algorithm.
   // 'squad' shares plans inside groups of nearby troops; group: false gives every troop its own plan, like 'timecost'.
-  setPlanner(name: 'classic' | 'timecost' | 'squad', options: { group?: boolean } = {}): void {
+  // 'strong' is Classic's own target choice (nearest building) but priced against the whole squad's dps, so it
+  // breaks a wall when that is faster than the way around - a fairer baseline than plain Classic.
+  setPlanner(name: 'classic' | 'strong' | 'timecost' | 'squad', options: { group?: boolean } = {}): void {
     if (name === 'classic') this.planner = new ClassicPlanner(this.grid)
+    else if (name === 'strong') this.planner = new StrongClassicPlanner(this.grid)
     else if (name === 'timecost') this.planner = new TimeCostPlanner(this.grid)
     else this.planner = new SquadPlanner(this.grid, options.group ?? true)
   }
