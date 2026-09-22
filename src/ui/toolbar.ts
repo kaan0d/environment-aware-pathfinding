@@ -4,19 +4,30 @@ import type { Editor, Tool } from './editor'
 const TOOLS: Array<[Tool, string]> = [
   ['place', 'Place'],
   ['wall', 'Draw wall'],
+  ['rect', 'Rect wall'],
+  ['line', 'Line wall'],
+  ['copy', 'Copy/Paste'],
   ['spawn', 'Spawn point'],
   ['erase', 'Erase'],
   ['select', 'Select'],
 ]
 
 // The map-editing tool buttons, in their own row in the top bar below play/reset/speed. 'Place' opens the
-// context menu (src/ui/placeMenu.ts) on the next map click; 'Draw wall' paints on click and drag at the level
-// picked next to it - buildings and units are one-offs from the menu, but a run of wall is common enough to
-// want dragging, which a per-click menu can't give.
-export function buildToolbar(container: HTMLElement, editor: Editor): void {
+// context menu (src/ui/placeMenu.ts) on the next map click; 'Draw wall', 'Rect wall' and 'Line wall' paint at
+// the level picked next to them - drag to paint a run, a rectangle outline or a straight line. 'Copy/Paste'
+// drags a rectangle to copy its walls and buildings, then a plain click pastes them anchored at the click.
+export function buildToolbar(container: HTMLElement, editor: Editor): { refresh(): void } {
   const buttons = new Map<Tool, HTMLButtonElement>()
+  const undoButton = document.createElement('button')
+  undoButton.textContent = 'Undo'
+  undoButton.addEventListener('click', () => editor.undo())
+  const redoButton = document.createElement('button')
+  redoButton.textContent = 'Redo'
+  redoButton.addEventListener('click', () => editor.redo())
   const refresh = () => {
     for (const [tool, button] of buttons) button.classList.toggle('on', tool === editor.tool)
+    undoButton.disabled = !editor.canUndo
+    redoButton.disabled = !editor.canRedo
   }
   for (const [tool, label] of TOOLS) {
     const button = document.createElement('button')
@@ -27,9 +38,11 @@ export function buildToolbar(container: HTMLElement, editor: Editor): void {
     })
     buttons.set(tool, button)
     container.append(button)
-    if (tool === 'wall') container.append(wallLevelSelect(editor))
+    if (tool === 'line') container.append(wallLevelSelect(editor)) // one shared level for wall/rect/line
   }
+  container.append(undoButton, redoButton)
   refresh()
+  return { refresh }
 }
 
 function wallLevelSelect(editor: Editor): HTMLSelectElement {

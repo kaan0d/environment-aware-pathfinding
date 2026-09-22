@@ -167,10 +167,12 @@ export class DebugLayer {
   }
 }
 
-// 0 = fast (green), 1 = slow (red), through yellow.
+// 0 = fast (blue), 1 = slow (orange) - blue/orange instead of green/red so it still reads for red-green color
+// blindness, the most common kind.
 function heatColor(t: number): number {
   const c = Math.min(1, Math.max(0, t))
-  const r = Math.round(255 * Math.min(1, c * 2))
-  const g = Math.round(255 * Math.min(1, (1 - c) * 2))
-  return (r << 16) | (g << 8) | 40
+  const from = [0x2b, 0x6c, 0xb0] // blue
+  const to = [0xf2, 0x8f, 0x1c] // orange
+  const [r, g, b] = from.map((f, i) => Math.round(f + (to[i] - f) * c))
+  return (r << 16) | (g << 8) | b
 }

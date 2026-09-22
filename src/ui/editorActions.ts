@@ -88,6 +88,88 @@ export function setHp(s: Scenario, selection: Selection, hp: number): boolean {
   return true
 }
 
+// Cells on the straight line from (x0,y0) to (x1,y1), inclusive, by Bresenham's algorithm.
+export function lineCells(x0: number, y0: number, x1: number, y1: number): { x: number; y: number }[] {
+  const cells: { x: number; y: number }[] = []
+  let x = x0
+  let y = y0
+  const dx = Math.abs(x1 - x0)
+  const dy = -Math.abs(y1 - y0)
+  const sx = x0 < x1 ? 1 : -1
+  const sy = y0 < y1 ? 1 : -1
+  let err = dx + dy
+  for (;;) {
+    cells.push({ x, y })
+    if (x === x1 && y === y1) return cells
+    const e2 = 2 * err
+    if (e2 >= dy) {
+      err += dy
+      x += sx
+    }
+    if (e2 <= dx) {
+      err += dx
+      y += sy
+    }
+  }
+}
+
+// The border cells (one cell thick) of the rectangle spanned by the two corners, inclusive.
+export function rectOutlineCells(x0: number, y0: number, x1: number, y1: number): { x: number; y: number }[] {
+  const minX = Math.min(x0, x1)
+  const maxX = Math.max(x0, x1)
+  const minY = Math.min(y0, y1)
+  const maxY = Math.max(y0, y1)
+  const cells: { x: number; y: number }[] = []
+  for (let x = minX; x <= maxX; x++) {
+    cells.push({ x, y: minY })
+    if (maxY !== minY) cells.push({ x, y: maxY })
+  }
+  for (let y = minY + 1; y < maxY; y++) {
+    cells.push({ x: minX, y })
+    if (maxX !== minX) cells.push({ x: maxX, y })
+  }
+  return cells
+}
+
+// Paints a wall on every cell of the list at the given level; returns how many cells actually changed.
+export function paintCells(s: Scenario, cells: { x: number; y: number }[], level: WallLevel): number {
+  let count = 0
+  for (const { x, y } of cells) if (paintWall(s, x, y, level)) count++
+  return count
+}
+
+export interface ClipEntry {
+  dx: number // offset from the copied rectangle's top-left corner
+  dy: number
+  wall?: WallLevel
+  buildingType?: string
+}
+
+// Every wall and building whose own cell falls inside the rectangle, as offsets from its top-left corner.
+export function copyRegion(s: Scenario, x0: number, y0: number, x1: number, y1: number): ClipEntry[] {
+  const minX = Math.min(x0, x1)
+  const minY = Math.min(y0, y1)
+  const maxX = Math.max(x0, x1)
+  const maxY = Math.max(y0, y1)
+  const entries: ClipEntry[] = []
+  for (const w of s.walls) if (w.x >= minX && w.x <= maxX && w.y >= minY && w.y <= maxY) entries.push({ dx: w.x - minX, dy: w.y - minY, wall: w.level })
+  for (const b of s.buildings) if (b.x >= minX && b.x <= maxX && b.y >= minY && b.y <= maxY) entries.push({ dx: b.x - minX, dy: b.y - minY, buildingType: b.type })
+  return entries
+}
+
+// Pastes a copied region anchored at (x, y); a cell that does not fit (out of bounds, occupied) is skipped.
+// Returns how many entries were actually placed.
+export function pasteRegion(s: Scenario, entries: ClipEntry[], x: number, y: number): number {
+  let count = 0
+  for (const e of entries) {
+    const cx = x + e.dx
+    const cy = y + e.dy
+    if (e.wall !== undefined && paintWall(s, cx, cy, e.wall)) count++
+    else if (e.buildingType !== undefined && placeBuilding(s, e.buildingType, cx, cy)) count++
+  }
+  return count
+}
+
 // The n free cells nearest to (x, y), spiralling outwards; used to spread a group drop around the click.
 export function scatterCells(s: Scenario, x: number, y: number, n: number, isFree: (x: number, y: number) => boolean): { x: number; y: number }[] {
   const taken = occupiedCells(s)

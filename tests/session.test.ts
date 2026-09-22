@@ -119,3 +119,35 @@ describe('Session settings', () => {
     }
   })
 })
+
+describe('Session: timeline (stepOnce, scrubTo)', () => {
+  it('stepOnce advances exactly one tick and matches the same tick reached via advance', () => {
+    const stepped = new Session(L_CORNER)
+    stepped.stepOnce()
+    const advanced = new Session(L_CORNER)
+    advanced.advance(1 / 30) // DT
+    expect(stepped.time).toBeCloseTo(advanced.time, 6)
+    expect(fingerprint(stepped)).toBe(fingerprint(advanced))
+  })
+
+  it('scrubTo(t) reproduces exactly what playing to t would have produced, and leaves the session paused', () => {
+    const played = runWithFrames([1 / 60])
+    const halfway = played.time / 2
+    const scrubbed = new Session(L_CORNER)
+    scrubbed.scrubTo(halfway)
+    const playedToHalfway = new Session(L_CORNER)
+    while (playedToHalfway.time < halfway) playedToHalfway.advance(1 / 60)
+    expect(scrubbed.time).toBeCloseTo(playedToHalfway.time, 6)
+    expect(fingerprint(scrubbed)).toBe(fingerprint(playedToHalfway))
+    expect(scrubbed.playing).toBe(false)
+  })
+
+  it('scrubTo is idempotent and can move backward as well as forward', () => {
+    const session = new Session(L_CORNER)
+    session.scrubTo(3)
+    const atThree = fingerprint(session)
+    session.scrubTo(1)
+    session.scrubTo(3)
+    expect(fingerprint(session)).toBe(atThree)
+  })
+})

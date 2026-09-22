@@ -93,13 +93,27 @@ export class Session {
     if (!this.playing) return
     this.accumulator += Math.min(realSeconds, MAX_FRAME_SECONDS) * this.speed
     while (this.accumulator >= DT && !this.finished) {
-      for (const listener of this.beforeStep) listener()
-      this.classic.step()
-      this.fresh.step()
-      this.stepCount++
+      this.stepOnce()
       this.accumulator -= DT
     }
     if (this.finished) this.accumulator = 0
+  }
+
+  // Advances exactly one fixed step, ignoring real time and the speed multiplier - the timeline's Step button.
+  stepOnce(): void {
+    if (this.finished) return
+    for (const listener of this.beforeStep) listener()
+    this.classic.step()
+    this.fresh.step()
+    this.stepCount++
+  }
+
+  // Rebuilds from t=0 and steps to `seconds` (or until finished). Deterministic, so this is exactly what
+  // playing to that moment would have produced; leaves the session paused there. For the timeline's scrub bar.
+  scrubTo(seconds: number): void {
+    this.reset()
+    this.playing = false
+    while (this.time < seconds && !this.finished) this.stepOnce()
   }
 
   summary(): Summary | null {

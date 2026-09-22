@@ -3,18 +3,20 @@ import type { Session } from './session'
 
 const SPEEDS = [0.5, 1, 2, 4]
 
-// Play / pause, reset and the speed choice, as plain DOM in the top bar.
-export function buildControls(bar: HTMLElement, session: Session, onReset: () => void): void {
+// Play / pause, reset and the speed choice, as plain DOM in the top bar. Returns togglePlay() so a keyboard
+// shortcut (Space, wired in main.ts) can drive the same button instead of duplicating its logic.
+export function buildControls(bar: HTMLElement, session: Session, onReset: () => void): { togglePlay(): void } {
   const title = document.createElement('span')
   title.className = 'title'
   title.textContent = S.title
 
   const play = document.createElement('button')
   const refreshPlay = () => (play.textContent = session.playing ? S.pause : S.play)
-  play.addEventListener('click', () => {
+  const togglePlay = () => {
     session.playing = !session.playing
     refreshPlay()
-  })
+  }
+  play.addEventListener('click', togglePlay)
   refreshPlay()
 
   const reset = document.createElement('button')
@@ -28,4 +30,5 @@ export function buildControls(bar: HTMLElement, session: Session, onReset: () =>
   speedLabel.append(S.speed, speed)
 
   bar.append(title, play, reset, speedLabel)
+  return { togglePlay }
 }
