@@ -27,7 +27,7 @@ The simulation is deterministic and independent of frame rate.
 
 Seconds to destroy every building (same map, same units, cells shared):
 
-| Scenario | Classic | New | |
+| Scenario | Classic | New | Difference |
 |---|---|---|---|
 | L corner | 21.07 | 13.33 | 37% faster |
 | Castle, one weak gate | 42.90 | 33.37 | 22% faster |
@@ -36,7 +36,8 @@ Seconds to destroy every building (same map, same units, cells shared):
 | Fully enclosed | 17.60 | 16.50 | 6% faster |
 | Maze with thin spots | 47.13 | 17.80 | 62% faster |
 | Reinforcements | 16.17 | 10.83 | 33% faster |
-| Crowd threshold, narrow passage | = | = | tie |
+| Crowd effect, one unit | 21.07 | 21.07 | same |
+| Narrow passage, 20 units | 13.40 | 13.40 | same |
 
 With one attacker per slot, the new planner also wins or ties every scenario.
 
