@@ -1,4 +1,4 @@
-# environment-aware pathfinding
+# environment-aware-pathfinding
 
 Pathfinding that treats walls as a cost, not as fixed obstacles. For each wall, breaking through, walking around or choosing another target is compared by real time cost. A browser demo runs a classic AI and this planner side by side on the same map with the same units.
 
